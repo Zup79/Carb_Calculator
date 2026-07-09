@@ -1,90 +1,92 @@
-# Bolus Compare
+# Carb_Calc
 
-A single-file PWA for comparing insulin bolus calculations against your pump. Enter a blood glucose level (mmol/L) and carbohydrates; it shows a suggested dose with every term of the calculation visible. Built because AID systems (Omnipod 5, t:slim Control-IQ) don't expose a plain carb + correction − IOB number to sanity-check against.
+A single-file PWA that answers the question AID systems don't: **how many grams of carbs should I eat for this low?** Enter BG (mmol/L), IOB from the pump, and CGM trend; it suggests grams with every term of the calculation visible — and logs the treatment, because the pump records every bolus but hypo treatments vanish from the record entirely.
 
-> **This is not a medical device.** It delivers nothing and decides nothing. Every output is a comparison figure only. Insulin ratios, targets and dosing decisions belong to you and your diabetes care team. If this app and your pump disagree, trust the pump and your training.
+Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledger) and a diary with 14-day stats for your diabetes educator.
+
+> **This is not a medical device.** It delivers nothing and decides nothing. Every output is a comparison or record only. Ratios, targets and treatment decisions belong to you and your diabetes care team. If this app and your training disagree, trust your training.
 
 ## What it does
 
-- BG + carbs in, suggested dose out — shown as a ledger, each term visible, no black box
-- Optional manual IOB entry from the pump display (overrides the app estimate, flagged `*` in the log)
-- Carbs-on-board and insulin-on-board decay from your logged entries, stepped every 30 minutes
-- Low-BG logic: treatment carbs get no insulin; only excess carbs are dosed
-- COB correction damping (optional): halves the correction while carbs are still absorbing — only ever reduces a dose
-- Food diary: every entry logged with note, exportable as CSV or print/PDF for your diabetes educator
-- Fully offline once installed; all data stays in localStorage on the device
+**Treat low (primary)**
+- BG + pump IOB + CGM trend in, suggested grams out — ledger format, no black box
+- IOB weighting: only a settings-defined % of displayed IOB is counted, because AID-displayed IOB includes automated delivery and counting it in full over-treats
+- Trend scaling: falling fast needs more than drifting low (↓↓ ×1.5, ↓ ×1.25, → ×1.0, ↑ ×0.75 — all adjustable)
+- Previous treatments still absorbing are subtracted — no stacking jelly beans
+- Recheck prompt: countdown banner after logging a low (default 15 min), recheck BG linked to the event, so the record shows low → treatment → outcome
+
+**Bolus compare (second tab)**
+- Standard carb ÷ ICR + correction − IOB, every term visible
+- Log the Omnipod's actual figure alongside — the diary captures pump-calculated insulin against the plain maths
+
+**Diary**
+- Every low, meal and recheck in one timeline
+- 14-day stats: lows count, average treatment size, recheck rate, rebound rate (>10 mmol/L), lows by time of day
+- CSV export and print/PDF for the educator, ratios and stats stamped in the header
 
 ## The maths
 
-Standard bolus calculation, nothing novel:
-
-**Above target**
+**Low treatment (grams)**
 
 ```
-carb bolus  = carbs ÷ ICR
-correction  = (BG − target) ÷ ISF        [× 0.5 if damping on and COB > 0.5 g]
-suggested   = max(0, carb bolus + correction − IOB)
+lift        = (target − BG) × ICR ÷ ISF        [0 if BG ≥ target]
+trended     = lift × trend multiplier
+IOB cover   = IOB × ICR × weighting%
+grams       = trended + IOB cover − previous treatment still absorbing
 ```
 
-**Below target**
+Clamped to min/max treatment settings; if ≤ 0, suggestion is 0 g with a "recheck rather than eat" message. BG at or above target with active insulin gives a pre-emptive figure, clearly labelled.
+
+**Bolus comparison (units)** — standard, nothing novel:
 
 ```
-treatment carbs = (target − BG) × ICR ÷ ISF     ← no insulin on these
-excess carbs    = max(0, carbs − treatment carbs)
-suggested       = max(0, excess ÷ ICR − IOB)
+Above target:  max(0, carbs ÷ ICR + (BG − target) ÷ ISF − IOB)
+Below target:  treatment carbs = (target − BG) × ICR ÷ ISF get no insulin;
+               only excess carbs are dosed
 ```
 
-**Decay (COB and IOB from logged entries)**
+Optional damping halves the correction while meal carbs are absorbing — only ever reduces.
 
-Linear, stepped at 30-minute intervals:
+**Decay** — linear, stepped every 30 minutes:
 
 ```
 remaining = amount × max(0, 1 − floor(elapsed_min / 30) × 30 ÷ (duration_hr × 60))
 ```
 
-Defaults are placeholders only — carb absorption 3 h, insulin duration 4 h — adjustable in Settings. Treatment carbs from low-BG entries are excluded from COB.
-
-**Rails**
-
-- Suggested dose floors at zero — never negative
-- Damping only ever reduces, never adds
-- Optional max-dose display cap
-- Dose rounded to 0.05 U
-- Nothing calculates until ICR, ISF and target are entered
+Meal carbs and low-treatment carbs are tracked separately: meal carbs count as covered by their insulin, so only previous *treatment* carbs offset a new low suggestion, and only *meal* carbs drive bolus-side damping.
 
 ## Known limitations
 
-- On an AID system, the pump's auto-corrections are invisible to this app. The app's own IOB estimate only knows what you log — it **will** drift from the pump. Use the manual IOB field (read it off the pump screen) for anything that matters.
-- Decay curves are linear approximations. Real absorption varies by food, activity, stress and everything else.
-- The app trusts whatever "Delivered" value you log. Garbage in, garbage out.
+- AID-displayed IOB includes automated delivery. The weighting % is a blunt instrument — start conservative and tune with your educator.
+- Decay curves are linear approximations. Real absorption varies by food, activity and everything else.
+- The app only knows what you log. Garbage in, garbage out.
+- Recheck notifications fire only while the app is open; the in-app banner is the reliable prompt.
 
 ## Settings
 
 | Setting | Unit | Notes |
 |---|---|---|
-| ICR | g per U | from your care team |
-| ISF | mmol/L per U | from your care team |
-| Target BG | mmol/L | from your care team |
-| Max shown dose | U | display cap, optional |
-| Carb absorption | hours | decay duration for COB |
-| Insulin duration | hours | decay duration for IOB |
-| COB damping | on/off | halves correction while carbs absorbing |
+| ICR / ISF / Target BG | g/U · mmol/L/U · mmol/L | from your care team; nothing calculates until set |
+| IOB weighting | % | share of pump IOB counted toward treatment |
+| Min / max treatment | g | floor and cap on suggestions |
+| Recheck timer | min | countdown after logging a low |
+| Trend multipliers | × | ↓↓ / ↓ / → / ↑ |
+| Carb absorption / insulin duration | hours | decay durations |
+| COB damping | on/off | bolus tab only; reduces only |
 
-All settings stored in localStorage. Blank on first run — no baked-in numbers.
+All blank on first run, stored in localStorage, nothing leaves the device.
 
 ## Deploy
 
-GitHub Pages, no build step:
+GitHub Pages, no build step: put `index.html`, `sw.js`, `manifest.json` and the icon PNGs in the repo root, enable Pages from `main`, open on your phone, Add to Home Screen. Service worker is network-first with cache fallback — updates land when online, app still opens offline.
 
-1. Put `index.html`, `sw.js`, `manifest.json` in the repo root
-2. Settings → Pages → deploy from `main` branch, root
-3. Open the URL on your phone → Add to Home Screen
+## Icons
 
-Service worker is network-first with cache fallback: updates land when online, app still opens offline.
+Lowercase `cc` set like a unit of measure (as in mL/cc), with graduation ticks like a measuring device and a small `g` for what it counts. Files: `icon-192.png`, `icon-512.png`, `icon-512-maskable.png` (Android adaptive), `apple-touch-icon.png` (iOS home screen), `favicon-32.png`.
 
 ## Stack
 
-Vanilla JS/CSS, single-file `index.html`, localStorage, service worker. No frameworks, no analytics, no network calls, no data leaves the device.
+Vanilla JS/CSS, single-file `index.html`, localStorage, service worker. No frameworks, no analytics, no network calls.
 
 ## Licence
 

@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#E9F2F7">
 <link rel="manifest" href="manifest.json">
-<title>Bolus Compare</title>
+<title>Carb_Calc</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{
   --bg:#E9F2F7; --panel:#FFFFFF; --panel2:#F4F9FC; --line:#C9DAE4;
@@ -19,12 +21,32 @@ html{-webkit-text-size-adjust:100%}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.45;
   padding:max(12px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom))}
 .wrap{max-width:520px;margin:0 auto}
-header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 14px}
+header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 10px}
 h1{font-size:17px;font-weight:700;letter-spacing:.04em;color:var(--okdeep)}
 h1 span{color:var(--mut);font-weight:400}
 .gear{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:8px;
   padding:6px 12px;font-size:13px;font-family:var(--sans);cursor:pointer}
 .gear:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:10px;
+  padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.tab.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.panel{display:none}
+.panel.on{display:block}
+
+/* recheck banner */
+.recheck{display:none;background:#FCF3DD;border:1px solid #E4C46A;color:#7A5500;border-radius:12px;
+  padding:12px;margin-bottom:12px;font-size:14px}
+.recheck.show{display:block}
+.recheck .cd{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums}
+.recheck.due{background:#FBE9E6;border-color:#E0958A;color:#8F2B20}
+.recheck .rrow{display:flex;gap:8px;margin-top:8px}
+.recheck input{flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;
+  font-family:var(--mono);font-size:18px;padding:7px 10px;color:var(--text)}
+.recheck button{background:var(--ok);border:0;color:#fff;border-radius:8px;padding:7px 14px;
+  font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
 
 /* inputs */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;
@@ -42,6 +64,13 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .btn-go{background:var(--ok);color:#fff;margin-top:4px}
 .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--text);font-weight:500}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* trend segmented */
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.seg button{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 0;
+  font-size:18px;cursor:pointer;color:var(--mut);font-family:var(--mono)}
+.seg button.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.seg button small{display:block;font-size:9px;font-family:var(--sans);letter-spacing:.05em}
 
 /* result ledger */
 .result{display:none}
@@ -62,18 +91,35 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .savebar{display:flex;gap:10px;margin-top:14px}
 .savebar input{font-size:18px}
 .savebar .btn{width:auto;flex:1;padding:10px 14px;font-size:14px}
-.disc{font-size:12px;color:var(--mut);margin:2px 2px 16px;line-height:1.5}
+.disc{font-size:12px;color:var(--mut);margin:2px 2px 12px;line-height:1.5}
+
+/* stats */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
+  box-shadow:0 1px 2px rgba(14,27,36,.05)}
+.stat .n{font-family:var(--mono);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--okdeep)}
+.stat .n.warn{color:var(--low)}
+.stat .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.tod{grid-column:1/-1}
+.tod .bars{display:flex;gap:6px;align-items:flex-end;height:52px;margin-top:8px}
+.tod .bar{flex:1;background:var(--ok);border-radius:4px 4px 0 0;min-height:3px;opacity:.85}
+.tod .labs{display:flex;gap:6px;margin-top:4px}
+.tod .labs span{flex:1;text-align:center;font-size:10px;color:var(--mut)}
 
 /* log */
-.loghead{display:flex;justify-content:space-between;align-items:center;margin:20px 2px 8px}
+.loghead{display:flex;justify-content:space-between;align-items:center;margin:6px 2px 8px}
 .loghead h2{font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--mut);font-weight:700}
 .loghead .actions button{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:8px;
   padding:5px 10px;font-size:12px;cursor:pointer;margin-left:6px;font-family:var(--sans)}
 .day{font-size:12px;color:var(--mut);letter-spacing:.06em;margin:14px 2px 6px;font-weight:700}
 .entry{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;
   font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;box-shadow:0 1px 2px rgba(14,27,36,.05)}
+.entry.elow{border-left:4px solid #E4C46A}
+.entry.ebolus{border-left:4px solid var(--ok)}
+.entry.erecheck{border-left:4px solid #9FB4C0}
 .entry .top{display:flex;justify-content:space-between;color:var(--text)}
 .entry .top .t{color:var(--mut)}
+.entry .tag{font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
 .entry .mid{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;color:var(--mut);font-size:13px}
 .entry .mid b{color:var(--text);font-weight:600}
 .entry .note{font-family:var(--sans);font-size:13px;color:var(--mut);margin-top:4px}
@@ -86,8 +132,11 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .sheet{background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:520px;
   max-height:88vh;overflow-y:auto;padding:18px 16px max(18px,env(safe-area-inset-bottom))}
 .sheet h2{font-size:15px;margin-bottom:4px}
-.sheet .sub{font-size:13px;color:var(--mut);margin-bottom:16px}
+.sheet h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin:16px 0 8px}
+.sheet .sub{font-size:13px;color:var(--mut);margin-bottom:12px}
 .sheet .field input{font-size:18px}
+.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.row4 input{font-size:16px;padding:8px}
 .tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
 .tog span{font-size:14px}
 .tog small{display:block;color:var(--mut);font-size:12px}
@@ -121,64 +170,130 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 <div class="wrap">
 
 <header class="no-print">
-  <h1>BOLUS <span>/ compare</span></h1>
+  <h1>CARB_CALC <span>/ treat · log · compare</span></h1>
   <button class="gear" id="btnSettings">Settings</button>
 </header>
 
-<p class="disc no-print">Comparison only. This does not deliver insulin and is not dosing advice — defer to your pump and care team.</p>
+<p class="disc no-print">Comparison and record only. Not dosing advice — defer to your pump and care team.</p>
 
-<div class="setwarn no-print" id="setwarn">Settings incomplete — enter your ICR, ISF and target BG before calculating.</div>
+<div class="setwarn no-print" id="setwarn">Settings incomplete — enter your ICR, ISF and target BG first.</div>
 
-<!-- ENTRY -->
-<div class="card no-print">
-  <div class="row2">
-    <div class="field">
-      <label for="bg">BG <span class="unit">mmol/L</span></label>
-      <input id="bg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="6.2">
+<!-- RECHECK BANNER -->
+<div class="recheck no-print" id="recheck">
+  <div id="rctext"></div>
+  <div class="rrow">
+    <input id="rcbg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="Recheck BG mmol/L">
+    <button id="rcSave">Log recheck</button>
+  </div>
+</div>
+
+<div class="tabs no-print">
+  <button class="tab on" data-p="treat">Treat low</button>
+  <button class="tab" data-p="bolus">Bolus</button>
+  <button class="tab" data-p="diary">Diary</button>
+</div>
+
+<!-- TREAT LOW -->
+<div class="panel on no-print" id="p_treat">
+  <div class="card">
+    <div class="row2">
+      <div class="field">
+        <label for="t_bg">BG <span class="unit">mmol/L</span></label>
+        <input id="t_bg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="3.8">
+      </div>
+      <div class="field">
+        <label for="t_iob">IOB from pump <span class="unit">U</span></label>
+        <input id="t_iob" type="number" inputmode="decimal" step="0.05" min="0" max="30" placeholder="1.20">
+      </div>
     </div>
     <div class="field">
-      <label for="carbs">Carbs <span class="unit">g</span></label>
-      <input id="carbs" type="number" inputmode="decimal" step="1" min="0" max="300" placeholder="45">
+      <label>CGM trend</label>
+      <div class="seg" id="trendSeg">
+        <button data-t="dd">↓↓<small>fast</small></button>
+        <button data-t="d">↓<small>falling</small></button>
+        <button data-t="f" class="on">→<small>steady</small></button>
+        <button data-t="u">↑<small>rising</small></button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="t_note">Note <span class="unit">optional — what you ate, context</span></label>
+      <textarea id="t_note" placeholder="e.g. jelly beans + half juice box"></textarea>
+    </div>
+    <button class="btn btn-go" id="btnTreat">How many grams?</button>
+  </div>
+
+  <div class="card result" id="t_result">
+    <div class="state" id="t_state"></div>
+    <div class="ledger" id="t_ledger"></div>
+    <div class="total">
+      <span class="k">Carbs to eat</span>
+      <span class="v" id="t_grams">0<small> g</small></span>
+    </div>
+    <div class="treatnote" id="t_msg" style="display:none"></div>
+    <div class="savebar">
+      <div style="flex:1">
+        <label for="t_eaten">Eaten <span class="unit">g — edit to actual</span></label>
+        <input id="t_eaten" type="number" inputmode="decimal" step="1" min="0" max="200">
+      </div>
+      <button class="btn btn-ghost" id="btnTreatSave" style="align-self:flex-end">Log low</button>
     </div>
   </div>
-  <div class="field">
-    <label for="iobman">IOB from pump <span class="unit">U — optional, overrides app estimate</span></label>
-    <input id="iobman" type="number" inputmode="decimal" step="0.05" min="0" max="30" placeholder="app estimate used if blank">
-  </div>
-  <div class="field">
-    <label for="note">Note <span class="unit">optional — food, context</span></label>
-    <textarea id="note" placeholder="e.g. 2 slices toast + banana"></textarea>
-  </div>
-  <button class="btn btn-go" id="btnCalc">Calculate</button>
 </div>
 
-<!-- RESULT -->
-<div class="card result no-print" id="result">
-  <div class="state" id="state"></div>
-  <div class="ledger" id="ledger"></div>
-  <div class="total">
-    <span class="k">Suggested</span>
-    <span class="v" id="dose">0.00<small> U</small></span>
-  </div>
-  <div class="treatnote" id="treatnote" style="display:none"></div>
-  <div class="savebar">
-    <div style="flex:1">
-      <label for="delivered">Delivered <span class="unit">U — edit to actual</span></label>
-      <input id="delivered" type="number" inputmode="decimal" step="0.05" min="0" max="30">
+<!-- BOLUS COMPARE -->
+<div class="panel no-print" id="p_bolus">
+  <div class="card">
+    <div class="row2">
+      <div class="field">
+        <label for="bg">BG <span class="unit">mmol/L</span></label>
+        <input id="bg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="6.2">
+      </div>
+      <div class="field">
+        <label for="carbs">Carbs <span class="unit">g</span></label>
+        <input id="carbs" type="number" inputmode="decimal" step="1" min="0" max="300" placeholder="45">
+      </div>
     </div>
-    <button class="btn btn-ghost" id="btnSave" style="align-self:flex-end">Log entry</button>
+    <div class="field">
+      <label for="iobman">IOB from pump <span class="unit">U — optional, overrides app estimate</span></label>
+      <input id="iobman" type="number" inputmode="decimal" step="0.05" min="0" max="30" placeholder="app estimate used if blank">
+    </div>
+    <div class="field">
+      <label for="note">Note <span class="unit">optional — food, context</span></label>
+      <textarea id="note" placeholder="e.g. 2 slices toast + banana"></textarea>
+    </div>
+    <button class="btn btn-go" id="btnCalc">Compare</button>
+  </div>
+
+  <div class="card result" id="result">
+    <div class="state" id="state"></div>
+    <div class="ledger" id="ledger"></div>
+    <div class="total">
+      <span class="k">Suggested</span>
+      <span class="v" id="dose">0.00<small> U</small></span>
+    </div>
+    <div class="treatnote" id="treatnote" style="display:none"></div>
+    <div class="savebar">
+      <div style="flex:1">
+        <label for="delivered">Pump delivered <span class="unit">U — enter Omnipod figure</span></label>
+        <input id="delivered" type="number" inputmode="decimal" step="0.05" min="0" max="30">
+      </div>
+      <button class="btn btn-ghost" id="btnSave" style="align-self:flex-end">Log meal</button>
+    </div>
   </div>
 </div>
 
-<!-- LOG -->
-<div class="loghead no-print">
-  <h2>Diary</h2>
-  <div class="actions">
-    <button id="btnPrint">Print / PDF</button>
-    <button id="btnCsv">CSV</button>
+<!-- DIARY -->
+<div class="panel no-print" id="p_diary">
+  <div class="stats" id="stats"></div>
+  <div class="loghead">
+    <h2>Diary</h2>
+    <div class="actions">
+      <button id="btnPrint">Print / PDF</button>
+      <button id="btnCsv">CSV</button>
+    </div>
   </div>
+  <div id="log"></div>
 </div>
-<div id="log" class="no-print"></div>
 
 <!-- PRINT DIARY -->
 <div class="print-only" id="printArea"></div>
@@ -190,6 +305,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   <div class="sheet">
     <h2>Settings</h2>
     <p class="sub">Your ratios come from your diabetes care team. Stored on this device only.</p>
+    <h3>Ratios</h3>
     <div class="row2">
       <div class="field">
         <label for="s_icr">ICR <span class="unit">g per U</span></label>
@@ -210,6 +326,37 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
         <input id="s_maxdose" type="number" inputmode="decimal" step="0.5" min="1" placeholder="10">
       </div>
     </div>
+    <h3>Low treatment</h3>
+    <div class="row2">
+      <div class="field">
+        <label for="s_iobscale">IOB weighting <span class="unit">% of pump IOB counted</span></label>
+        <input id="s_iobscale" type="number" inputmode="decimal" step="5" min="0" max="100" placeholder="50">
+      </div>
+      <div class="field">
+        <label for="s_mintreat">Min treatment <span class="unit">g</span></label>
+        <input id="s_mintreat" type="number" inputmode="decimal" step="1" min="0" placeholder="5">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="s_maxtreat">Max treatment <span class="unit">g cap</span></label>
+        <input id="s_maxtreat" type="number" inputmode="decimal" step="1" min="5" placeholder="40">
+      </div>
+      <div class="field">
+        <label for="s_recheck">Recheck timer <span class="unit">minutes</span></label>
+        <input id="s_recheck" type="number" inputmode="decimal" step="1" min="5" max="60" placeholder="15">
+      </div>
+    </div>
+    <div class="field">
+      <label>Trend multipliers <span class="unit">↓↓ / ↓ / → / ↑</span></label>
+      <div class="row4">
+        <input id="s_mdd" type="number" inputmode="decimal" step="0.05" min="0.1" placeholder="1.5">
+        <input id="s_md" type="number" inputmode="decimal" step="0.05" min="0.1" placeholder="1.25">
+        <input id="s_mf" type="number" inputmode="decimal" step="0.05" min="0.1" placeholder="1.0">
+        <input id="s_mu" type="number" inputmode="decimal" step="0.05" min="0.1" placeholder="0.75">
+      </div>
+    </div>
+    <h3>Decay</h3>
     <div class="row2">
       <div class="field">
         <label for="s_carbhrs">Carb absorption <span class="unit">hours</span></label>
@@ -221,10 +368,10 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
       </div>
     </div>
     <div class="tog">
-      <span>COB correction damping<small>When carbs still absorbing, halve the correction term. Only ever reduces the dose.</small></span>
+      <span>COB correction damping<small>Bolus tab: halve the correction while meal carbs still absorbing. Only ever reduces the dose.</small></span>
       <input type="checkbox" id="s_damp" style="width:22px;height:22px" checked>
     </div>
-    <p class="sub" style="margin-top:8px">Decay is stepped every 30 minutes: carbs and insulin from logged entries wind down linearly over the hours above, factored into the next calculation automatically.</p>
+    <p class="sub" style="margin-top:8px">Decay is stepped every 30 minutes. Previous low treatments still absorbing are subtracted from new treatment suggestions; meal carbs are treated as covered by their insulin.</p>
     <button class="btn btn-go" id="btnSaveSettings">Save settings</button>
     <button class="btn btn-ghost" id="btnCloseSettings">Close</button>
   </div>
@@ -234,6 +381,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 'use strict';
 const $=id=>document.getElementById(id);
 const STEP_MIN=30;
+const TRENDS={dd:{sym:'↓↓',key:'mdd',def:1.5},d:{sym:'↓',key:'md',def:1.25},f:{sym:'→',key:'mf',def:1.0},u:{sym:'↑',key:'mu',def:0.75}};
 
 /* ---------- storage ---------- */
 const store={
@@ -250,24 +398,48 @@ function steppedRemaining(amount,minsElapsed,totalHours){
   const frac=1-(steps*STEP_MIN)/(totalHours*60);
   return frac<=0?0:amount*frac;
 }
-function currentCOB(now,s){
-  return store.log.reduce((sum,e)=>sum+steppedRemaining((e.carbs||0)-(e.treatCarbs||0),(now-e.ts)/60000,s.carbhrs||3),0);
+// Meal carbs (covered by insulin) — used for bolus-tab damping/display
+function mealCOB(now,s){
+  return store.log.filter(e=>e.type==='bolus').reduce((sum,e)=>
+    sum+steppedRemaining(e.carbs||0,(now-e.ts)/60000,s.carbhrs||3),0);
+}
+// Uncovered carbs from previous low treatments — subtracted from new treatment suggestions
+function treatCOB(now,s){
+  return store.log.filter(e=>e.type==='low').reduce((sum,e)=>
+    sum+steppedRemaining(e.eaten||0,(now-e.ts)/60000,s.carbhrs||3),0);
 }
 function currentIOB(now,s){
-  return store.log.reduce((sum,e)=>sum+steppedRemaining(e.delivered||0,(now-e.ts)/60000,s.iobhrs||4),0);
+  return store.log.filter(e=>e.type==='bolus').reduce((sum,e)=>
+    sum+steppedRemaining(e.delivered||0,(now-e.ts)/60000,s.iobhrs||4),0);
 }
 
-/* ---------- core calc ---------- */
+/* ---------- low treatment calc ---------- */
+function calcTreat(bg,iob,trend,s,now){
+  const mult=parseFloat(s[TRENDS[trend].key])||TRENDS[trend].def;
+  const scale=(s.iobscale??50)/100;
+  const base=Math.max(0,(s.target-bg)*s.icr/s.isf);
+  const iobCover=iob*s.icr*scale;
+  const prevTreat=treatCOB(now,s);
+  let grams=base*mult+iobCover-prevTreat;
+  const r={bg,iob,trend,mult,base,iobCover,prevTreat,scale,
+    low:bg<s.target,capped:false,floored:false,grams:0};
+  if(grams<=0){r.grams=0;return r}
+  const minT=s.mintreat??0,maxT=s.maxtreat??Infinity;
+  if(grams<minT){grams=minT;r.floored=true}
+  if(grams>maxT){grams=maxT;r.capped=true}
+  r.grams=Math.round(grams);
+  return r;
+}
+
+/* ---------- bolus calc (unchanged maths) ---------- */
 function calc(bg,carbs,iobManual,s,now){
   const icr=s.icr,isf=s.isf,target=s.target;
   const iobApp=currentIOB(now,s);
   const iob=(iobManual!==null&&!isNaN(iobManual))?iobManual:iobApp;
-  const cob=currentCOB(now,s);
+  const cob=mealCOB(now,s);
   const r={bg,carbs,iob,iobSource:(iobManual!==null&&!isNaN(iobManual))?'pump':'app',cob,
     carbBolus:0,correction:0,damped:false,treatCarbs:0,dose:0,low:bg<target,capped:false};
-
   if(r.low){
-    // grams needed to lift BG to target, from user's own ratios
     r.treatCarbs=Math.max(0,(target-bg)*icr/isf);
     const excess=Math.max(0,carbs-r.treatCarbs);
     r.carbBolus=excess/icr;
@@ -279,12 +451,12 @@ function calc(bg,carbs,iobManual,s,now){
     r.dose=Math.max(0,r.carbBolus+r.correction-iob);
   }
   if(s.maxdose&&r.dose>s.maxdose){r.dose=s.maxdose;r.capped=true}
-  r.dose=Math.round(r.dose*20)/20; // 0.05 U resolution
+  r.dose=Math.round(r.dose*20)/20;
   return r;
 }
 
 /* ---------- settings UI ---------- */
-const SFIELDS=['icr','isf','target','maxdose','carbhrs','iobhrs'];
+const SFIELDS=['icr','isf','target','maxdose','iobscale','mintreat','maxtreat','recheck','mdd','md','mf','mu','carbhrs','iobhrs'];
 function loadSettingsUI(){
   const s=store.settings;
   SFIELDS.forEach(k=>{$('s_'+k).value=(s[k]??'')});
@@ -292,7 +464,7 @@ function loadSettingsUI(){
 }
 function saveSettingsUI(){
   const s={};
-  SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>0)s[k]=v});
+  SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>=0)s[k]=v});
   s.damp=$('s_damp').checked;
   store.settings=s;
   checkReady();
@@ -302,11 +474,112 @@ function checkReady(){
   const ok=settingsComplete();
   $('setwarn').classList.toggle('show',!ok);
   $('btnCalc').disabled=!ok;
+  $('btnTreat').disabled=!ok;
 }
 
-/* ---------- calc UI ---------- */
-let lastResult=null;
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p_'+t.dataset.p));
+  if(t.dataset.p==='diary'){renderLog();renderStats()}
+}));
+
+/* ---------- trend segmented ---------- */
+let trendSel='f';
+document.querySelectorAll('#trendSeg button').forEach(b=>b.addEventListener('click',()=>{
+  trendSel=b.dataset.t;
+  document.querySelectorAll('#trendSeg button').forEach(x=>x.classList.toggle('on',x===b));
+}));
+
+/* ---------- treat UI ---------- */
+let lastTreat=null;
 function fmt(n,d=2){return n.toFixed(d)}
+function runTreat(){
+  const s=store.settings;
+  const bg=parseFloat($('t_bg').value);
+  const iob=parseFloat($('t_iob').value)||0;
+  if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
+  const now=Date.now();
+  const r=calcTreat(bg,iob,trendSel,s,now);
+  r.ts=now;r.note=$('t_note').value.trim();
+  lastTreat=r;
+  renderTreat(r,s);
+}
+function renderTreat(r,s){
+  const st=$('t_state');
+  if(r.low){st.textContent='LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym;st.className='state low'}
+  else{st.textContent='NOT LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym+' (pre-emptive)';st.className='state ok'}
+  const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
+  let h='';
+  h+=li('Lift to target','(target − BG) × ICR ÷ ISF',fmt(r.base,0)+' g');
+  if(r.mult!==1)h+=li('Trend '+TRENDS[r.trend].sym,'× '+fmt(r.mult,2),fmt(r.base*r.mult,0)+' g');
+  h+=li('IOB cover',fmt(r.iob,2)+' U × ICR × '+Math.round(r.scale*100)+'%','+'+fmt(r.iobCover,0)+' g');
+  if(r.prevTreat>0.5)h+=li('− Previous treatment','still absorbing','−'+fmt(r.prevTreat,0)+' g',true);
+  if(r.floored)h+=li('Raised to minimum','min treatment setting',fmt(s.mintreat,0)+' g');
+  if(r.capped)h+=li('Capped','max treatment setting',fmt(s.maxtreat,0)+' g');
+  $('t_ledger').innerHTML=h;
+  $('t_grams').innerHTML=r.grams+'<small> g</small>';
+  const msg=$('t_msg');
+  if(r.grams===0){msg.style.display='block';msg.textContent='No carbs suggested on these numbers — previous treatment or trend already has it covered. Recheck rather than eat.'}
+  else if(!r.low){msg.style.display='block';msg.textContent='BG not below target — this is pre-emptive cover for active insulin only.'}
+  else msg.style.display='none';
+  $('t_eaten').value=r.grams;
+  $('t_result').classList.add('show');
+  $('t_result').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveTreat(){
+  if(!lastTreat)return;
+  const e={type:'low',ts:lastTreat.ts,bg:lastTreat.bg,iob:lastTreat.iob,trend:lastTreat.trend,
+    recGrams:lastTreat.grams,eaten:parseFloat($('t_eaten').value)||0,note:lastTreat.note};
+  const log=store.log;log.push(e);store.log=log;
+  const mins=store.settings.recheck||15;
+  localStorage.setItem('bc_pending',JSON.stringify({parent:e.ts,due:e.ts+mins*60000}));
+  lastTreat=null;
+  $('t_result').classList.remove('show');
+  $('t_bg').value='';$('t_iob').value='';$('t_note').value='';
+  tickRecheck();
+}
+
+/* ---------- recheck ---------- */
+function pending(){try{return JSON.parse(localStorage.getItem('bc_pending'))}catch(e){return null}}
+let notified=false;
+function tickRecheck(){
+  const p=pending();
+  const el=$('recheck');
+  if(!p){el.classList.remove('show');return}
+  // expire silently after 90 min unresolved
+  if(Date.now()-p.parent>90*60000){localStorage.removeItem('bc_pending');el.classList.remove('show');return}
+  el.classList.add('show');
+  const left=p.due-Date.now();
+  if(left>0){
+    el.classList.remove('due');
+    const m=Math.floor(left/60000),sec=Math.floor((left%60000)/1000);
+    $('rctext').innerHTML='Low logged — recheck in <span class="cd">'+m+':'+String(sec).padStart(2,'0')+'</span>';
+    notified=false;
+  }else{
+    el.classList.add('due');
+    $('rctext').innerHTML='<strong>Recheck due</strong> — log your BG now.';
+    if(!notified&&'Notification' in window&&Notification.permission==='granted'){
+      try{new Notification('Carb_Calc',{body:'Recheck due — log your BG.'})}catch(e){}
+      notified=true;
+    }
+  }
+}
+function saveRecheck(){
+  const p=pending();if(!p)return;
+  const bg=parseFloat($('rcbg').value);
+  if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
+  const log=store.log;
+  log.push({type:'recheck',ts:Date.now(),bg,parent:p.parent});
+  store.log=log;
+  localStorage.removeItem('bc_pending');
+  $('rcbg').value='';
+  tickRecheck();
+}
+setInterval(tickRecheck,1000);
+
+/* ---------- bolus UI ---------- */
+let lastResult=null;
 function runCalc(){
   const s=store.settings;
   const bg=parseFloat($('bg').value),carbs=parseFloat($('carbs').value)||0;
@@ -322,11 +595,10 @@ function runCalc(){
 function renderResult(r,s){
   const st=$('state');
   if(r.low){st.textContent='BELOW TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state low'}
-  else if(r.correction>0||r.bg>s.target){st.textContent='ABOVE TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state hi'}
+  else if(r.bg>s.target){st.textContent='ABOVE TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state hi'}
   else{st.textContent='AT TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state ok'}
-
-  let h='';
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
+  let h='';
   if(r.low){
     h+=li('Treatment carbs','no insulin — lifts BG to target',fmt(r.treatCarbs,0)+' g');
     h+=li('Excess carbs ÷ ICR','insulin only on carbs beyond treatment',fmt(r.carbBolus)+' U');
@@ -338,13 +610,11 @@ function renderResult(r,s){
   if(r.capped)h+=li('Capped','max shown dose setting',fmt(s.maxdose)+' U');
   $('ledger').innerHTML=h;
   $('dose').innerHTML=fmt(r.dose)+'<small> U</small>';
-
   const tn=$('treatnote');
   if(r.low&&r.treatCarbs>0){
     tn.style.display='block';
-    tn.textContent='Treat the low first: ~'+fmt(r.treatCarbs,0)+' g fast carbs gets no insulin. Suggestion covers only what you eat beyond that.';
+    tn.textContent='Below target — use the Treat low tab for a carb figure. Suggestion covers only carbs beyond treatment.';
   }else tn.style.display='none';
-
   $('delivered').value=fmt(r.dose);
   $('result').classList.add('show');
   $('result').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -352,12 +622,42 @@ function renderResult(r,s){
 function saveEntry(){
   if(!lastResult)return;
   const d=parseFloat($('delivered').value);
-  const e={...lastResult,delivered:isNaN(d)?0:d};
+  const e={type:'bolus',ts:lastResult.ts,bg:lastResult.bg,carbs:lastResult.carbs,iob:lastResult.iob,
+    iobSource:lastResult.iobSource,cob:lastResult.cob,carbBolus:lastResult.carbBolus,
+    correction:lastResult.correction,dose:lastResult.dose,delivered:isNaN(d)?0:d,note:lastResult.note};
   const log=store.log;log.push(e);store.log=log;
   lastResult=null;
   $('result').classList.remove('show');
   $('bg').value='';$('carbs').value='';$('iobman').value='';$('note').value='';
-  renderLog();
+}
+
+/* ---------- stats (14 days) ---------- */
+function renderStats(){
+  const s=store.settings;
+  const cut=Date.now()-14*86400000;
+  const log=store.log.filter(e=>e.ts>=cut);
+  const lows=log.filter(e=>e.type==='low');
+  const meals=log.filter(e=>e.type==='bolus');
+  const rechecks=log.filter(e=>e.type==='recheck');
+  const rcOf=l=>rechecks.find(r=>r.parent===l.ts);
+  const checked=lows.filter(l=>rcOf(l));
+  const rebounds=checked.filter(l=>rcOf(l).bg>10);
+  const avgTreat=lows.length?lows.reduce((a,e)=>a+(e.eaten||0),0)/lows.length:0;
+  const buckets=[0,0,0,0];
+  lows.forEach(l=>{buckets[Math.floor(new Date(l.ts).getHours()/6)]++});
+  const mx=Math.max(1,...buckets);
+  const stat=(n,l,warn)=>`<div class="stat"><div class="n${warn?' warn':''}">${n}</div><div class="l">${l}</div></div>`;
+  let h='';
+  h+=stat(lows.length,'lows · 14 days',lows.length>7);
+  h+=stat(avgTreat?Math.round(avgTreat)+' g':'—','avg treatment');
+  h+=stat(lows.length?Math.round(checked.length/lows.length*100)+'%':'—','rechecked');
+  h+=stat(checked.length?Math.round(rebounds.length/checked.length*100)+'%':'—','rebound >10',rebounds.length>0);
+  h+=stat(meals.length,'meals logged');
+  h+=stat(meals.length?Math.round(meals.reduce((a,e)=>a+(e.carbs||0),0)/14)+' g':'—','avg carbs / day');
+  h+=`<div class="stat tod"><div class="l">Lows by time of day</div><div class="bars">${
+    buckets.map(b=>`<div class="bar" style="height:${Math.round(b/mx*100)}%"></div>`).join('')
+  }</div><div class="labs"><span>00–06</span><span>06–12</span><span>12–18</span><span>18–24</span></div></div>`;
+  $('stats').innerHTML=h;
 }
 
 /* ---------- log ---------- */
@@ -368,45 +668,64 @@ function renderLog(){
   const el=$('log');
   if(!log.length){el.innerHTML='<div class="empty">No entries yet.</div>';return}
   let h='',day='';
-  log.forEach((e,i)=>{
+  log.forEach(e=>{
     const d=dstr(e.ts);
     if(d!==day){day=d;h+=`<div class="day">${d}</div>`}
-    h+=`<div class="entry">
-      <div class="top"><span>BG <b>${e.bg.toFixed(1)}</b> · ${e.carbs||0} g</span><span class="t">${tstr(e.ts)}</span></div>
-      <div class="mid"><span>sugg <b>${e.dose.toFixed(2)} U</b></span><span>deliv <b>${(e.delivered||0).toFixed(2)} U</b></span><span>IOB ${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</span>${e.cob>0.5?`<span>COB ${e.cob.toFixed(0)} g</span>`:''}${e.treatCarbs>0?`<span>treat ${e.treatCarbs.toFixed(0)} g</span>`:''}</div>
-      ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
-      <button class="del" data-i="${store.log.indexOf(e)}">delete</button>
-    </div>`;
+    const idx=store.log.indexOf(e);
+    if(e.type==='low'){
+      h+=`<div class="entry elow">
+        <div class="top"><span><span class="tag">LOW</span> BG <b>${e.bg.toFixed(1)}</b> ${TRENDS[e.trend]?TRENDS[e.trend].sym:''}</span><span class="t">${tstr(e.ts)}</span></div>
+        <div class="mid"><span>rec <b>${e.recGrams} g</b></span><span>ate <b>${e.eaten} g</b></span><span>IOB ${e.iob.toFixed(2)}</span></div>
+        ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
+        <button class="del" data-i="${idx}">delete</button></div>`;
+    }else if(e.type==='recheck'){
+      const par=store.log.find(p=>p.ts===e.parent);
+      h+=`<div class="entry erecheck">
+        <div class="top"><span><span class="tag">RECHECK</span> BG <b>${e.bg.toFixed(1)}</b>${par?' <span style="color:var(--mut)">(was '+par.bg.toFixed(1)+')</span>':''}</span><span class="t">${tstr(e.ts)}</span></div>
+        <button class="del" data-i="${idx}">delete</button></div>`;
+    }else{
+      h+=`<div class="entry ebolus">
+        <div class="top"><span><span class="tag">MEAL</span> BG <b>${e.bg.toFixed(1)}</b> · ${e.carbs||0} g</span><span class="t">${tstr(e.ts)}</span></div>
+        <div class="mid"><span>sugg <b>${e.dose.toFixed(2)} U</b></span><span>pump <b>${(e.delivered||0).toFixed(2)} U</b></span><span>IOB ${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</span>${e.cob>0.5?`<span>COB ${e.cob.toFixed(0)} g</span>`:''}</div>
+        ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
+        <button class="del" data-i="${idx}">delete</button></div>`;
+    }
   });
   el.innerHTML=h;
   el.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
     if(!confirm('Delete this entry?'))return;
-    const log=store.log;log.splice(parseInt(b.dataset.i),1);store.log=log;renderLog();
+    const log=store.log;log.splice(parseInt(b.dataset.i),1);store.log=log;renderLog();renderStats();
   }));
 }
 
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','bg_mmol','carbs_g','treat_carbs_g','cob_g','iob_u','iob_source','carb_bolus_u','correction_u','suggested_u','delivered_u','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
-    rows.push([dstr(e.ts),tstr(e.ts),e.bg.toFixed(1),e.carbs||0,(e.treatCarbs||0).toFixed(0),e.cob.toFixed(1),e.iob.toFixed(2),e.iobSource,e.carbBolus.toFixed(2),(e.correction||0).toFixed(2),e.dose.toFixed(2),(e.delivered||0).toFixed(2),e.note||'']);
+    rows.push([dstr(e.ts),tstr(e.ts),e.type,e.bg.toFixed(1),
+      e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
+      e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
+      e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='food-diary-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download='carb-calc-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();URL.revokeObjectURL(a.href);
 }
 function printDiary(){
   const s=store.settings;
-  let h=`<div class="ph"><h1>Food & bolus diary</h1>
-  <p>Generated ${new Date().toLocaleDateString('en-AU')} · Settings at export: ICR ${s.icr||'—'} g/U · ISF ${s.isf||'—'} mmol/L/U · target ${s.target||'—'} mmol/L · comparison calculator, not a dosing device</p></div>
-  <table><tr><th class="l">Date</th><th>Time</th><th>BG</th><th>Carbs g</th><th>Treat g</th><th>COB g</th><th>IOB U</th><th>Sugg U</th><th>Deliv U</th><th class="l">Note</th></tr>`;
+  renderStats();
+  const cut=Date.now()-14*86400000;
+  const lows14=store.log.filter(e=>e.type==='low'&&e.ts>=cut).length;
+  let h=`<div class="ph"><h1>Carb_Calc — food & low-treatment diary</h1>
+  <p>Generated ${new Date().toLocaleDateString('en-AU')} · ICR ${s.icr||'—'} g/U · ISF ${s.isf||'—'} mmol/L/U · target ${s.target||'—'} mmol/L · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
+  <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Note</th></tr>`;
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
-    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td>${e.bg.toFixed(1)}</td><td>${e.carbs||0}</td><td>${e.treatCarbs?e.treatCarbs.toFixed(0):''}</td><td>${e.cob>0.5?e.cob.toFixed(0):''}</td><td>${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</td><td>${e.dose.toFixed(2)}</td><td>${(e.delivered||0).toFixed(2)}</td><td class="l">${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
+    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${e.type}</td><td>${e.bg.toFixed(1)}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
   });
-  h+=`</table><p class="pfoot">* IOB read from pump display. All other IOB/COB are app estimates on a linear 30-minute stepped decay (carbs ${s.carbhrs||3} h, insulin ${s.iobhrs||4} h). Suggested doses are for comparison against the pump's calculation only.</p>`;
+  h+=`</table><p class="pfoot">* IOB read from pump display. COB/IOB estimates use a linear 30-minute stepped decay (carbs ${s.carbhrs||3} h, insulin ${s.iobhrs||4} h). Low-treatment suggestions: (target − BG) × ICR ÷ ISF × trend + IOB × ICR × weighting − previous treatment absorbing. All figures for comparison and record only.</p>`;
   $('printArea').innerHTML=h;
   window.print();
 }
@@ -416,15 +735,21 @@ $('btnSettings').addEventListener('click',()=>{loadSettingsUI();$('modal').class
 $('btnCloseSettings').addEventListener('click',()=>$('modal').classList.remove('show'));
 $('btnSaveSettings').addEventListener('click',()=>{saveSettingsUI();$('modal').classList.remove('show')});
 $('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('show')});
+$('btnTreat').addEventListener('click',runTreat);
+$('btnTreatSave').addEventListener('click',saveTreat);
 $('btnCalc').addEventListener('click',runCalc);
 $('btnSave').addEventListener('click',saveEntry);
+$('rcSave').addEventListener('click',saveRecheck);
 $('btnCsv').addEventListener('click',exportCsv);
 $('btnPrint').addEventListener('click',printDiary);
 
 checkReady();
-renderLog();
+tickRecheck();
 if(!settingsComplete()){loadSettingsUI();$('modal').classList.add('show')}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('Notification' in window&&Notification.permission==='default'){
+  document.body.addEventListener('click',()=>{Notification.requestPermission().catch(()=>{})},{once:true});
+}
 </script>
 </body>
 </html>
