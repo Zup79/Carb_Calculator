@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E9F2F7">
+<link rel="manifest" href="manifest.json">
+<title>Bolus Compare</title>
+<style>
+:root{
+  --bg:#E9F2F7; --panel:#FFFFFF; --panel2:#F4F9FC; --line:#C9DAE4;
+  --text:#0E1B24; --mut:#5A6E7C; --ok:#0E8A5F; --okdeep:#0B6E4C;
+  --low:#9A6B00; --hi:#B3372A;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono',Consolas,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.45;
+  padding:max(12px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom))}
+.wrap{max-width:520px;margin:0 auto}
+header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 14px}
+h1{font-size:17px;font-weight:700;letter-spacing:.04em;color:var(--okdeep)}
+h1 span{color:var(--mut);font-weight:400}
+.gear{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+  padding:6px 12px;font-size:13px;font-family:var(--sans);cursor:pointer}
+.gear:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+
+/* inputs */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(14,27,36,.06)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{margin-bottom:12px}
+.field:last-child{margin-bottom:0}
+label{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin-bottom:5px}
+input,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  color:var(--text);font-family:var(--mono);font-size:22px;padding:10px 12px;font-variant-numeric:tabular-nums}
+textarea{font-family:var(--sans);font-size:15px;min-height:44px;resize:vertical}
+input::placeholder,textarea::placeholder{color:#9FB4C0}
+.unit{font-size:11px;color:var(--mut);font-family:var(--sans);text-transform:none;letter-spacing:0;margin-left:4px}
+.btn{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.btn-go{background:var(--ok);color:#fff;margin-top:4px}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--text);font-weight:500}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* result ledger */
+.result{display:none}
+.result.show{display:block}
+.state{font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;font-weight:700}
+.state.ok{color:var(--okdeep)}.state.low{color:var(--low)}.state.hi{color:var(--hi)}
+.ledger{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px}
+.ledger .li{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line)}
+.ledger .li .k{color:var(--mut);font-family:var(--sans);font-size:13px}
+.ledger .li .k small{display:block;color:#8AA0AE;font-size:11px}
+.ledger .neg{color:var(--low)}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding-top:14px}
+.total .k{font-family:var(--sans);font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.09em}
+.total .v{font-family:var(--mono);font-size:44px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:var(--okdeep)}
+.total .v small{font-size:16px;color:var(--mut);font-weight:400}
+.treatnote{background:#FCF3DD;border:1px solid #E4C46A;color:#7A5500;
+  border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
+.savebar{display:flex;gap:10px;margin-top:14px}
+.savebar input{font-size:18px}
+.savebar .btn{width:auto;flex:1;padding:10px 14px;font-size:14px}
+.disc{font-size:12px;color:var(--mut);margin:2px 2px 16px;line-height:1.5}
+
+/* log */
+.loghead{display:flex;justify-content:space-between;align-items:center;margin:20px 2px 8px}
+.loghead h2{font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--mut);font-weight:700}
+.loghead .actions button{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+  padding:5px 10px;font-size:12px;cursor:pointer;margin-left:6px;font-family:var(--sans)}
+.day{font-size:12px;color:var(--mut);letter-spacing:.06em;margin:14px 2px 6px;font-weight:700}
+.entry{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;
+  font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;box-shadow:0 1px 2px rgba(14,27,36,.05)}
+.entry .top{display:flex;justify-content:space-between;color:var(--text)}
+.entry .top .t{color:var(--mut)}
+.entry .mid{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;color:var(--mut);font-size:13px}
+.entry .mid b{color:var(--text);font-weight:600}
+.entry .note{font-family:var(--sans);font-size:13px;color:var(--mut);margin-top:4px}
+.entry .del{background:none;border:0;color:#8AA0AE;font-size:12px;cursor:pointer;padding:2px 0 0;font-family:var(--sans)}
+.empty{color:var(--mut);font-size:14px;text-align:center;padding:24px 0}
+
+/* settings + modal */
+.modal{position:fixed;inset:0;background:rgba(14,27,36,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.modal.show{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:520px;
+  max-height:88vh;overflow-y:auto;padding:18px 16px max(18px,env(safe-area-inset-bottom))}
+.sheet h2{font-size:15px;margin-bottom:4px}
+.sheet .sub{font-size:13px;color:var(--mut);margin-bottom:16px}
+.sheet .field input{font-size:18px}
+.tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
+.tog span{font-size:14px}
+.tog small{display:block;color:var(--mut);font-size:12px}
+.sheet .btn{margin-top:12px}
+.setwarn{background:#FBE9E6;border:1px solid #E0958A;color:#8F2B20;
+  border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:14px;display:none}
+.setwarn.show{display:block}
+
+/* print diary */
+.print-only{display:none}
+@media print{
+  body{background:#fff;color:#000;padding:0;font-size:11px}
+  .no-print{display:none !important}
+  .print-only{display:block}
+  .ph{font-family:var(--sans)}
+  .ph h1{font-size:16px;margin-bottom:2px}
+  .ph p{font-size:11px;color:#444;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+  th,td{border:1px solid #999;padding:4px 6px;text-align:right}
+  th{background:#eee;font-family:var(--sans);text-align:right}
+  th:first-child,td:first-child,th.l,td.l{text-align:left}
+  .pfoot{margin-top:10px;font-size:9px;color:#555;font-family:var(--sans)}
+}
+@media (prefers-reduced-motion:no-preference){
+  .result.show{animation:up .18s ease-out}
+  @keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="no-print">
+  <h1>BOLUS <span>/ compare</span></h1>
+  <button class="gear" id="btnSettings">Settings</button>
+</header>
+
+<p class="disc no-print">Comparison only. This does not deliver insulin and is not dosing advice — defer to your pump and care team.</p>
+
+<div class="setwarn no-print" id="setwarn">Settings incomplete — enter your ICR, ISF and target BG before calculating.</div>
+
+<!-- ENTRY -->
+<div class="card no-print">
+  <div class="row2">
+    <div class="field">
+      <label for="bg">BG <span class="unit">mmol/L</span></label>
+      <input id="bg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="6.2">
+    </div>
+    <div class="field">
+      <label for="carbs">Carbs <span class="unit">g</span></label>
+      <input id="carbs" type="number" inputmode="decimal" step="1" min="0" max="300" placeholder="45">
+    </div>
+  </div>
+  <div class="field">
+    <label for="iobman">IOB from pump <span class="unit">U — optional, overrides app estimate</span></label>
+    <input id="iobman" type="number" inputmode="decimal" step="0.05" min="0" max="30" placeholder="app estimate used if blank">
+  </div>
+  <div class="field">
+    <label for="note">Note <span class="unit">optional — food, context</span></label>
+    <textarea id="note" placeholder="e.g. 2 slices toast + banana"></textarea>
+  </div>
+  <button class="btn btn-go" id="btnCalc">Calculate</button>
+</div>
+
+<!-- RESULT -->
+<div class="card result no-print" id="result">
+  <div class="state" id="state"></div>
+  <div class="ledger" id="ledger"></div>
+  <div class="total">
+    <span class="k">Suggested</span>
+    <span class="v" id="dose">0.00<small> U</small></span>
+  </div>
+  <div class="treatnote" id="treatnote" style="display:none"></div>
+  <div class="savebar">
+    <div style="flex:1">
+      <label for="delivered">Delivered <span class="unit">U — edit to actual</span></label>
+      <input id="delivered" type="number" inputmode="decimal" step="0.05" min="0" max="30">
+    </div>
+    <button class="btn btn-ghost" id="btnSave" style="align-self:flex-end">Log entry</button>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="loghead no-print">
+  <h2>Diary</h2>
+  <div class="actions">
+    <button id="btnPrint">Print / PDF</button>
+    <button id="btnCsv">CSV</button>
+  </div>
+</div>
+<div id="log" class="no-print"></div>
+
+<!-- PRINT DIARY -->
+<div class="print-only" id="printArea"></div>
+
+</div>
+
+<!-- SETTINGS -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h2>Settings</h2>
+    <p class="sub">Your ratios come from your diabetes care team. Stored on this device only.</p>
+    <div class="row2">
+      <div class="field">
+        <label for="s_icr">ICR <span class="unit">g per U</span></label>
+        <input id="s_icr" type="number" inputmode="decimal" step="0.1" min="1" placeholder="10">
+      </div>
+      <div class="field">
+        <label for="s_isf">ISF <span class="unit">mmol/L per U</span></label>
+        <input id="s_isf" type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="2.5">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="s_target">Target BG <span class="unit">mmol/L</span></label>
+        <input id="s_target" type="number" inputmode="decimal" step="0.1" min="4" max="10" placeholder="6.0">
+      </div>
+      <div class="field">
+        <label for="s_maxdose">Max shown dose <span class="unit">U cap</span></label>
+        <input id="s_maxdose" type="number" inputmode="decimal" step="0.5" min="1" placeholder="10">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="s_carbhrs">Carb absorption <span class="unit">hours</span></label>
+        <input id="s_carbhrs" type="number" inputmode="decimal" step="0.5" min="1" max="8" placeholder="3">
+      </div>
+      <div class="field">
+        <label for="s_iobhrs">Insulin duration <span class="unit">hours</span></label>
+        <input id="s_iobhrs" type="number" inputmode="decimal" step="0.5" min="2" max="8" placeholder="4">
+      </div>
+    </div>
+    <div class="tog">
+      <span>COB correction damping<small>When carbs still absorbing, halve the correction term. Only ever reduces the dose.</small></span>
+      <input type="checkbox" id="s_damp" style="width:22px;height:22px" checked>
+    </div>
+    <p class="sub" style="margin-top:8px">Decay is stepped every 30 minutes: carbs and insulin from logged entries wind down linearly over the hours above, factored into the next calculation automatically.</p>
+    <button class="btn btn-go" id="btnSaveSettings">Save settings</button>
+    <button class="btn btn-ghost" id="btnCloseSettings">Close</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const STEP_MIN=30;
+
+/* ---------- storage ---------- */
+const store={
+  get settings(){try{return JSON.parse(localStorage.getItem('bc_settings'))||{}}catch(e){return{}}},
+  set settings(v){localStorage.setItem('bc_settings',JSON.stringify(v))},
+  get log(){try{return JSON.parse(localStorage.getItem('bc_log'))||[]}catch(e){return[]}},
+  set log(v){localStorage.setItem('bc_log',JSON.stringify(v))}
+};
+
+/* ---------- decay maths (stepped at 30 min) ---------- */
+function steppedRemaining(amount,minsElapsed,totalHours){
+  if(!totalHours||minsElapsed<0)return 0;
+  const steps=Math.floor(minsElapsed/STEP_MIN);
+  const frac=1-(steps*STEP_MIN)/(totalHours*60);
+  return frac<=0?0:amount*frac;
+}
+function currentCOB(now,s){
+  return store.log.reduce((sum,e)=>sum+steppedRemaining((e.carbs||0)-(e.treatCarbs||0),(now-e.ts)/60000,s.carbhrs||3),0);
+}
+function currentIOB(now,s){
+  return store.log.reduce((sum,e)=>sum+steppedRemaining(e.delivered||0,(now-e.ts)/60000,s.iobhrs||4),0);
+}
+
+/* ---------- core calc ---------- */
+function calc(bg,carbs,iobManual,s,now){
+  const icr=s.icr,isf=s.isf,target=s.target;
+  const iobApp=currentIOB(now,s);
+  const iob=(iobManual!==null&&!isNaN(iobManual))?iobManual:iobApp;
+  const cob=currentCOB(now,s);
+  const r={bg,carbs,iob,iobSource:(iobManual!==null&&!isNaN(iobManual))?'pump':'app',cob,
+    carbBolus:0,correction:0,damped:false,treatCarbs:0,dose:0,low:bg<target,capped:false};
+
+  if(r.low){
+    // grams needed to lift BG to target, from user's own ratios
+    r.treatCarbs=Math.max(0,(target-bg)*icr/isf);
+    const excess=Math.max(0,carbs-r.treatCarbs);
+    r.carbBolus=excess/icr;
+    r.dose=Math.max(0,r.carbBolus-iob);
+  }else{
+    r.carbBolus=carbs/icr;
+    r.correction=(bg-target)/isf;
+    if(s.damp&&cob>0.5){r.correction*=0.5;r.damped=true}
+    r.dose=Math.max(0,r.carbBolus+r.correction-iob);
+  }
+  if(s.maxdose&&r.dose>s.maxdose){r.dose=s.maxdose;r.capped=true}
+  r.dose=Math.round(r.dose*20)/20; // 0.05 U resolution
+  return r;
+}
+
+/* ---------- settings UI ---------- */
+const SFIELDS=['icr','isf','target','maxdose','carbhrs','iobhrs'];
+function loadSettingsUI(){
+  const s=store.settings;
+  SFIELDS.forEach(k=>{$('s_'+k).value=(s[k]??'')});
+  $('s_damp').checked=s.damp!==false;
+}
+function saveSettingsUI(){
+  const s={};
+  SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>0)s[k]=v});
+  s.damp=$('s_damp').checked;
+  store.settings=s;
+  checkReady();
+}
+function settingsComplete(){const s=store.settings;return s.icr>0&&s.isf>0&&s.target>0}
+function checkReady(){
+  const ok=settingsComplete();
+  $('setwarn').classList.toggle('show',!ok);
+  $('btnCalc').disabled=!ok;
+}
+
+/* ---------- calc UI ---------- */
+let lastResult=null;
+function fmt(n,d=2){return n.toFixed(d)}
+function runCalc(){
+  const s=store.settings;
+  const bg=parseFloat($('bg').value),carbs=parseFloat($('carbs').value)||0;
+  const iobRaw=$('iobman').value.trim();
+  const iobManual=iobRaw===''?null:parseFloat(iobRaw);
+  if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
+  const now=Date.now();
+  const r=calc(bg,carbs,iobManual,s,now);
+  r.ts=now;r.note=$('note').value.trim();
+  lastResult=r;
+  renderResult(r,s);
+}
+function renderResult(r,s){
+  const st=$('state');
+  if(r.low){st.textContent='BELOW TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state low'}
+  else if(r.correction>0||r.bg>s.target){st.textContent='ABOVE TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state hi'}
+  else{st.textContent='AT TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state ok'}
+
+  let h='';
+  const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
+  if(r.low){
+    h+=li('Treatment carbs','no insulin — lifts BG to target',fmt(r.treatCarbs,0)+' g');
+    h+=li('Excess carbs ÷ ICR','insulin only on carbs beyond treatment',fmt(r.carbBolus)+' U');
+  }else{
+    h+=li('Carbs ÷ ICR',fmt(r.carbs,0)+' g ÷ '+s.icr,fmt(r.carbBolus)+' U');
+    h+=li('Correction'+(r.damped?' (halved)':''),(r.damped?'COB '+fmt(r.cob,0)+' g still absorbing':'(BG − target) ÷ ISF'),fmt(r.correction)+' U');
+  }
+  h+=li('− IOB',r.iobSource==='pump'?'from pump':'app estimate','−'+fmt(r.iob)+' U',true);
+  if(r.capped)h+=li('Capped','max shown dose setting',fmt(s.maxdose)+' U');
+  $('ledger').innerHTML=h;
+  $('dose').innerHTML=fmt(r.dose)+'<small> U</small>';
+
+  const tn=$('treatnote');
+  if(r.low&&r.treatCarbs>0){
+    tn.style.display='block';
+    tn.textContent='Treat the low first: ~'+fmt(r.treatCarbs,0)+' g fast carbs gets no insulin. Suggestion covers only what you eat beyond that.';
+  }else tn.style.display='none';
+
+  $('delivered').value=fmt(r.dose);
+  $('result').classList.add('show');
+  $('result').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveEntry(){
+  if(!lastResult)return;
+  const d=parseFloat($('delivered').value);
+  const e={...lastResult,delivered:isNaN(d)?0:d};
+  const log=store.log;log.push(e);store.log=log;
+  lastResult=null;
+  $('result').classList.remove('show');
+  $('bg').value='';$('carbs').value='';$('iobman').value='';$('note').value='';
+  renderLog();
+}
+
+/* ---------- log ---------- */
+function dstr(ts){const d=new Date(ts);return d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+function tstr(ts){const d=new Date(ts);return d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function renderLog(){
+  const log=[...store.log].sort((a,b)=>b.ts-a.ts);
+  const el=$('log');
+  if(!log.length){el.innerHTML='<div class="empty">No entries yet.</div>';return}
+  let h='',day='';
+  log.forEach((e,i)=>{
+    const d=dstr(e.ts);
+    if(d!==day){day=d;h+=`<div class="day">${d}</div>`}
+    h+=`<div class="entry">
+      <div class="top"><span>BG <b>${e.bg.toFixed(1)}</b> · ${e.carbs||0} g</span><span class="t">${tstr(e.ts)}</span></div>
+      <div class="mid"><span>sugg <b>${e.dose.toFixed(2)} U</b></span><span>deliv <b>${(e.delivered||0).toFixed(2)} U</b></span><span>IOB ${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</span>${e.cob>0.5?`<span>COB ${e.cob.toFixed(0)} g</span>`:''}${e.treatCarbs>0?`<span>treat ${e.treatCarbs.toFixed(0)} g</span>`:''}</div>
+      ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
+      <button class="del" data-i="${store.log.indexOf(e)}">delete</button>
+    </div>`;
+  });
+  el.innerHTML=h;
+  el.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
+    if(!confirm('Delete this entry?'))return;
+    const log=store.log;log.splice(parseInt(b.dataset.i),1);store.log=log;renderLog();
+  }));
+}
+
+/* ---------- exports ---------- */
+function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function exportCsv(){
+  const rows=[['date','time','bg_mmol','carbs_g','treat_carbs_g','cob_g','iob_u','iob_source','carb_bolus_u','correction_u','suggested_u','delivered_u','note']];
+  [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
+    rows.push([dstr(e.ts),tstr(e.ts),e.bg.toFixed(1),e.carbs||0,(e.treatCarbs||0).toFixed(0),e.cob.toFixed(1),e.iob.toFixed(2),e.iobSource,e.carbBolus.toFixed(2),(e.correction||0).toFixed(2),e.dose.toFixed(2),(e.delivered||0).toFixed(2),e.note||'']);
+  });
+  const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='food-diary-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function printDiary(){
+  const s=store.settings;
+  let h=`<div class="ph"><h1>Food & bolus diary</h1>
+  <p>Generated ${new Date().toLocaleDateString('en-AU')} · Settings at export: ICR ${s.icr||'—'} g/U · ISF ${s.isf||'—'} mmol/L/U · target ${s.target||'—'} mmol/L · comparison calculator, not a dosing device</p></div>
+  <table><tr><th class="l">Date</th><th>Time</th><th>BG</th><th>Carbs g</th><th>Treat g</th><th>COB g</th><th>IOB U</th><th>Sugg U</th><th>Deliv U</th><th class="l">Note</th></tr>`;
+  [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
+    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td>${e.bg.toFixed(1)}</td><td>${e.carbs||0}</td><td>${e.treatCarbs?e.treatCarbs.toFixed(0):''}</td><td>${e.cob>0.5?e.cob.toFixed(0):''}</td><td>${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</td><td>${e.dose.toFixed(2)}</td><td>${(e.delivered||0).toFixed(2)}</td><td class="l">${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
+  });
+  h+=`</table><p class="pfoot">* IOB read from pump display. All other IOB/COB are app estimates on a linear 30-minute stepped decay (carbs ${s.carbhrs||3} h, insulin ${s.iobhrs||4} h). Suggested doses are for comparison against the pump's calculation only.</p>`;
+  $('printArea').innerHTML=h;
+  window.print();
+}
+
+/* ---------- wire up ---------- */
+$('btnSettings').addEventListener('click',()=>{loadSettingsUI();$('modal').classList.add('show')});
+$('btnCloseSettings').addEventListener('click',()=>$('modal').classList.remove('show'));
+$('btnSaveSettings').addEventListener('click',()=>{saveSettingsUI();$('modal').classList.remove('show')});
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('show')});
+$('btnCalc').addEventListener('click',runCalc);
+$('btnSave').addEventListener('click',saveEntry);
+$('btnCsv').addEventListener('click',exportCsv);
+$('btnPrint').addEventListener('click',printDiary);
+
+checkReady();
+renderLog();
+if(!settingsComplete()){loadSettingsUI();$('modal').classList.add('show')}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
