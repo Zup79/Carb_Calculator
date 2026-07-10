@@ -19,6 +19,10 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - Standard carb ÷ ICR + correction − IOB, every term visible
 - Log the Omnipod's actual figure alongside — the diary captures pump-calculated insulin against the plain maths
 
+**Time-block ratios**
+- ICR, ISF and target set in up to 8 user-defined time blocks (like a pump basal program) — each block starts at its time and runs to the next, wrapping overnight
+- Calculations resolve the active block automatically; the block and ratios used are shown in the result ledger and stamped on every log entry and CSV row
+
 **Diary**
 - Every low, meal and recheck in one timeline
 - 14-day stats: lows count, average treatment size, recheck rate, rebound rate (>10 mmol/L), lows by time of day
@@ -66,7 +70,7 @@ Meal carbs and low-treatment carbs are tracked separately: meal carbs count as c
 
 | Setting | Unit | Notes |
 |---|---|---|
-| ICR / ISF / Target BG | g/U · mmol/L/U · mmol/L | from your care team; nothing calculates until set |
+| Ratio blocks (up to 8) | time + g/U · mmol/L/U · mmol/L | from your care team; each block runs to the next block's start; nothing calculates until at least one complete block is set |
 | IOB weighting | % | share of pump IOB counted toward treatment |
 | Min / max treatment | g | floor and cap on suggestions |
 | Recheck timer | min | countdown after logging a low |

@@ -137,6 +137,11 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .sheet .field input{font-size:18px}
 .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .row4 input{font-size:16px;padding:8px}
+.blockrow{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
+.blockrow input{font-size:15px;padding:8px 6px}
+.blockrow .bx{background:none;border:0;color:#8AA0AE;font-size:18px;cursor:pointer;padding:0 4px;font-family:var(--sans)}
+.blockhead{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:4px}
+.blockhead span{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
 .tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
 .tog span{font-size:14px}
 .tog small{display:block;color:var(--mut);font-size:12px}
@@ -305,26 +310,18 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   <div class="sheet">
     <h2>Settings</h2>
     <p class="sub">Your ratios come from your diabetes care team. Stored on this device only.</p>
-    <h3>Ratios</h3>
+    <h3>Ratios — time blocks</h3>
+    <p class="sub">Each block starts at its time and runs to the next block's start, wrapping overnight. Up to 8 blocks. One block from 00:00 means the same ratios all day.</p>
+    <div class="blockhead"><span>From</span><span>ICR g/U</span><span>ISF</span><span>Target</span><span></span></div>
+    <div id="blocks"></div>
+    <button class="btn btn-ghost" id="btnAddBlock" style="margin-top:2px;padding:9px;font-size:14px">+ Add block</button>
+    <h3>Bolus</h3>
     <div class="row2">
-      <div class="field">
-        <label for="s_icr">ICR <span class="unit">g per U</span></label>
-        <input id="s_icr" type="number" inputmode="decimal" step="0.1" min="1" placeholder="10">
-      </div>
-      <div class="field">
-        <label for="s_isf">ISF <span class="unit">mmol/L per U</span></label>
-        <input id="s_isf" type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="2.5">
-      </div>
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label for="s_target">Target BG <span class="unit">mmol/L</span></label>
-        <input id="s_target" type="number" inputmode="decimal" step="0.1" min="4" max="10" placeholder="6.0">
-      </div>
       <div class="field">
         <label for="s_maxdose">Max shown dose <span class="unit">U cap</span></label>
         <input id="s_maxdose" type="number" inputmode="decimal" step="0.5" min="1" placeholder="10">
       </div>
+      <div></div>
     </div>
     <h3>Low treatment</h3>
     <div class="row2">
@@ -456,20 +453,65 @@ function calc(bg,carbs,iobManual,s,now){
 }
 
 /* ---------- settings UI ---------- */
-const SFIELDS=['icr','isf','target','maxdose','iobscale','mintreat','maxtreat','recheck','mdd','md','mf','mu','carbhrs','iobhrs'];
+const SFIELDS=['maxdose','iobscale','mintreat','maxtreat','recheck','mdd','md','mf','mu','carbhrs','iobhrs'];
+const MAX_BLOCKS=8;
+function blockRow(b){
+  const div=document.createElement('div');div.className='blockrow';
+  div.innerHTML=`<input type="time" value="${b&&b.start||''}" class="b_start">
+    <input type="number" inputmode="decimal" step="0.1" min="1" placeholder="10" value="${b&&b.icr||''}" class="b_icr">
+    <input type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="2.5" value="${b&&b.isf||''}" class="b_isf">
+    <input type="number" inputmode="decimal" step="0.1" min="4" max="10" placeholder="6.0" value="${b&&b.target||''}" class="b_target">
+    <button class="bx" title="Remove block">×</button>`;
+  div.querySelector('.bx').addEventListener('click',()=>div.remove());
+  return div;
+}
+function renderBlockRows(blocks){
+  const el=$('blocks');el.innerHTML='';
+  (blocks&&blocks.length?blocks:[{start:'00:00'}]).forEach(b=>el.appendChild(blockRow(b)));
+}
+function collectBlocks(){
+  const rows=[...document.querySelectorAll('#blocks .blockrow')];
+  const blocks=[];
+  rows.forEach(r=>{
+    const start=r.querySelector('.b_start').value;
+    const icr=parseFloat(r.querySelector('.b_icr').value);
+    const isf=parseFloat(r.querySelector('.b_isf').value);
+    const target=parseFloat(r.querySelector('.b_target').value);
+    if(start&&icr>0&&isf>0&&target>0)blocks.push({start,icr,isf,target});
+  });
+  blocks.sort((a,b)=>a.start.localeCompare(b.start));
+  return blocks.slice(0,MAX_BLOCKS);
+}
+function ratiosAt(date,s){
+  const blocks=s.blocks||[];
+  if(!blocks.length)return null;
+  const mins=date.getHours()*60+date.getMinutes();
+  const toMins=t=>{const[a,b]=t.split(':');return(+a)*60+(+b)};
+  let active=blocks[blocks.length-1]; // wraps from previous day
+  for(const b of blocks){if(toMins(b.start)<=mins)active=b}
+  return active;
+}
 function loadSettingsUI(){
   const s=store.settings;
   SFIELDS.forEach(k=>{$('s_'+k).value=(s[k]??'')});
   $('s_damp').checked=s.damp!==false;
+  // migrate legacy single-ratio settings to one block
+  let blocks=s.blocks;
+  if((!blocks||!blocks.length)&&s.icr>0&&s.isf>0&&s.target>0){
+    blocks=[{start:'00:00',icr:s.icr,isf:s.isf,target:s.target}];
+  }
+  renderBlockRows(blocks);
 }
 function saveSettingsUI(){
   const s={};
   SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>=0)s[k]=v});
   s.damp=$('s_damp').checked;
+  s.blocks=collectBlocks();
+  if(!s.blocks.length)alert('No complete ratio block — enter start time, ICR, ISF and target on at least one row.');
   store.settings=s;
   checkReady();
 }
-function settingsComplete(){const s=store.settings;return s.icr>0&&s.isf>0&&s.target>0}
+function settingsComplete(){const s=store.settings;return !!(s.blocks&&s.blocks.length)}
 function checkReady(){
   const ok=settingsComplete();
   $('setwarn').classList.toggle('show',!ok);
@@ -496,14 +538,18 @@ let lastTreat=null;
 function fmt(n,d=2){return n.toFixed(d)}
 function runTreat(){
   const s=store.settings;
+  const rt=ratiosAt(new Date(),s);
+  if(!rt){alert('Set up ratio blocks in Settings first.');return}
+  const sEff={...s,icr:rt.icr,isf:rt.isf,target:rt.target};
   const bg=parseFloat($('t_bg').value);
   const iob=parseFloat($('t_iob').value)||0;
   if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
   const now=Date.now();
-  const r=calcTreat(bg,iob,trendSel,s,now);
+  const r=calcTreat(bg,iob,trendSel,sEff,now);
+  r.block=rt.start;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
   r.ts=now;r.note=$('t_note').value.trim();
   lastTreat=r;
-  renderTreat(r,s);
+  renderTreat(r,sEff);
 }
 function renderTreat(r,s){
   const st=$('t_state');
@@ -511,6 +557,7 @@ function renderTreat(r,s){
   else{st.textContent='NOT LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym+' (pre-emptive)';st.className='state ok'}
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
   let h='';
+  h+=li('Ratios','block from '+r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
   h+=li('Lift to target','(target − BG) × ICR ÷ ISF',fmt(r.base,0)+' g');
   if(r.mult!==1)h+=li('Trend '+TRENDS[r.trend].sym,'× '+fmt(r.mult,2),fmt(r.base*r.mult,0)+' g');
   h+=li('IOB cover',fmt(r.iob,2)+' U × ICR × '+Math.round(r.scale*100)+'%','+'+fmt(r.iobCover,0)+' g');
@@ -530,7 +577,8 @@ function renderTreat(r,s){
 function saveTreat(){
   if(!lastTreat)return;
   const e={type:'low',ts:lastTreat.ts,bg:lastTreat.bg,iob:lastTreat.iob,trend:lastTreat.trend,
-    recGrams:lastTreat.grams,eaten:parseFloat($('t_eaten').value)||0,note:lastTreat.note};
+    recGrams:lastTreat.grams,eaten:parseFloat($('t_eaten').value)||0,note:lastTreat.note,
+    block:lastTreat.block,icr:lastTreat.icrU,isf:lastTreat.isfU,target:lastTreat.targetU};
   const log=store.log;log.push(e);store.log=log;
   const mins=store.settings.recheck||15;
   localStorage.setItem('bc_pending',JSON.stringify({parent:e.ts,due:e.ts+mins*60000}));
@@ -582,15 +630,19 @@ setInterval(tickRecheck,1000);
 let lastResult=null;
 function runCalc(){
   const s=store.settings;
+  const rt=ratiosAt(new Date(),s);
+  if(!rt){alert('Set up ratio blocks in Settings first.');return}
+  const sEff={...s,icr:rt.icr,isf:rt.isf,target:rt.target};
   const bg=parseFloat($('bg').value),carbs=parseFloat($('carbs').value)||0;
   const iobRaw=$('iobman').value.trim();
   const iobManual=iobRaw===''?null:parseFloat(iobRaw);
   if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
   const now=Date.now();
-  const r=calc(bg,carbs,iobManual,s,now);
+  const r=calc(bg,carbs,iobManual,sEff,now);
+  r.block=rt.start;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
   r.ts=now;r.note=$('note').value.trim();
   lastResult=r;
-  renderResult(r,s);
+  renderResult(r,sEff);
 }
 function renderResult(r,s){
   const st=$('state');
@@ -599,6 +651,7 @@ function renderResult(r,s){
   else{st.textContent='AT TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state ok'}
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
   let h='';
+  h+=li('Ratios','block from '+r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
   if(r.low){
     h+=li('Treatment carbs','no insulin — lifts BG to target',fmt(r.treatCarbs,0)+' g');
     h+=li('Excess carbs ÷ ICR','insulin only on carbs beyond treatment',fmt(r.carbBolus)+' U');
@@ -624,7 +677,8 @@ function saveEntry(){
   const d=parseFloat($('delivered').value);
   const e={type:'bolus',ts:lastResult.ts,bg:lastResult.bg,carbs:lastResult.carbs,iob:lastResult.iob,
     iobSource:lastResult.iobSource,cob:lastResult.cob,carbBolus:lastResult.carbBolus,
-    correction:lastResult.correction,dose:lastResult.dose,delivered:isNaN(d)?0:d,note:lastResult.note};
+    correction:lastResult.correction,dose:lastResult.dose,delivered:isNaN(d)?0:d,note:lastResult.note,
+    block:lastResult.block,icr:lastResult.icrU,isf:lastResult.isfU,target:lastResult.targetU};
   const log=store.log;log.push(e);store.log=log;
   lastResult=null;
   $('result').classList.remove('show');
@@ -701,12 +755,13 @@ function renderLog(){
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','block','icr','isf','target','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     rows.push([dstr(e.ts),tstr(e.ts),e.type,e.bg.toFixed(1),
       e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
-      e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',e.note||'']);
+      e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
   const a=document.createElement('a');
@@ -719,8 +774,9 @@ function printDiary(){
   renderStats();
   const cut=Date.now()-14*86400000;
   const lows14=store.log.filter(e=>e.type==='low'&&e.ts>=cut).length;
+  const blockStr=(s.blocks||[]).map(b=>b.start+' → ICR '+b.icr+' / ISF '+b.isf+' / tgt '+b.target).join(' · ')||'—';
   let h=`<div class="ph"><h1>Carb_Calc — food & low-treatment diary</h1>
-  <p>Generated ${new Date().toLocaleDateString('en-AU')} · ICR ${s.icr||'—'} g/U · ISF ${s.isf||'—'} mmol/L/U · target ${s.target||'—'} mmol/L · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
+  <p>Generated ${new Date().toLocaleDateString('en-AU')} · ratio blocks: ${blockStr} · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
   <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Note</th></tr>`;
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${e.type}</td><td>${e.bg.toFixed(1)}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
@@ -732,6 +788,10 @@ function printDiary(){
 
 /* ---------- wire up ---------- */
 $('btnSettings').addEventListener('click',()=>{loadSettingsUI();$('modal').classList.add('show')});
+$('btnAddBlock').addEventListener('click',()=>{
+  if(document.querySelectorAll('#blocks .blockrow').length>=MAX_BLOCKS){alert('Maximum '+MAX_BLOCKS+' blocks.');return}
+  $('blocks').appendChild(blockRow(null));
+});
 $('btnCloseSettings').addEventListener('click',()=>$('modal').classList.remove('show'));
 $('btnSaveSettings').addEventListener('click',()=>{saveSettingsUI();$('modal').classList.remove('show')});
 $('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('show')});
