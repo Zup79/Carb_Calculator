@@ -137,11 +137,13 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .sheet .field input{font-size:18px}
 .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .row4 input{font-size:16px;padding:8px}
-.blockrow{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
-.blockrow input{font-size:15px;padding:8px 6px}
-.blockrow .bx{background:none;border:0;color:#8AA0AE;font-size:18px;cursor:pointer;padding:0 4px;font-family:var(--sans)}
-.blockhead{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:4px}
-.blockhead span{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.brow2{display:grid;grid-template-columns:1.25fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
+.brow2 input{font-size:15px;padding:8px 6px}
+.brow2 .bx{background:none;border:0;color:#8AA0AE;font-size:18px;cursor:pointer;padding:0 4px;font-family:var(--sans)}
+.bh2{display:grid;grid-template-columns:1.25fr 1fr auto;gap:6px;margin:12px 0 4px}
+.bh2 span{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.badd{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+  padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--sans)}
 .tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
 .tog span{font-size:14px}
 .tog small{display:block;color:var(--mut);font-size:12px}
@@ -310,11 +312,17 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   <div class="sheet">
     <h2>Settings</h2>
     <p class="sub">Your ratios come from your diabetes care team. Stored on this device only.</p>
-    <h3>Ratios — time blocks</h3>
-    <p class="sub">Each block starts at its time and runs to the next block's start, wrapping overnight. Up to 8 blocks. One block from 00:00 means the same ratios all day.</p>
-    <div class="blockhead"><span>From</span><span>ICR g/U</span><span>ISF</span><span>Target</span><span></span></div>
-    <div id="blocks"></div>
-    <button class="btn btn-ghost" id="btnAddBlock" style="margin-top:2px;padding:9px;font-size:14px">+ Add block</button>
+    <h3>Ratio schedules</h3>
+    <p class="sub">ICR, correction factor and target each have their own time blocks — they don't need to align. Each block runs to the next in its schedule, wrapping overnight. Up to 8 per schedule.</p>
+    <div class="bh2"><span>From</span><span>ICR g/U</span><span></span></div>
+    <div id="icrRows"></div>
+    <button class="badd" data-s="icr">+ ICR block</button>
+    <div class="bh2"><span>From</span><span>CF mmol/L per U</span><span></span></div>
+    <div id="cfRows"></div>
+    <button class="badd" data-s="cf">+ CF block</button>
+    <div class="bh2"><span>From</span><span>Target mmol/L</span><span></span></div>
+    <div id="tgtRows"></div>
+    <button class="badd" data-s="tgt">+ Target block</button>
     <h3>Bolus</h3>
     <div class="row2">
       <div class="field">
@@ -455,63 +463,72 @@ function calc(bg,carbs,iobManual,s,now){
 /* ---------- settings UI ---------- */
 const SFIELDS=['maxdose','iobscale','mintreat','maxtreat','recheck','mdd','md','mf','mu','carbhrs','iobhrs'];
 const MAX_BLOCKS=8;
-function blockRow(b){
-  const div=document.createElement('div');div.className='blockrow';
-  div.innerHTML=`<input type="time" value="${b&&b.start||''}" class="b_start">
-    <input type="number" inputmode="decimal" step="0.1" min="1" placeholder="10" value="${b&&b.icr||''}" class="b_icr">
-    <input type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="2.5" value="${b&&b.isf||''}" class="b_isf">
-    <input type="number" inputmode="decimal" step="0.1" min="4" max="10" placeholder="6.0" value="${b&&b.target||''}" class="b_target">
-    <button class="bx" title="Remove block">×</button>`;
+const PLACEHOLDERS={icr:'10',cf:'2.5',tgt:'6.0'};
+function schedRow(schedId,b){
+  const div=document.createElement('div');div.className='brow2';
+  div.innerHTML=`<input type="time" value="${b&&b.start||''}" class="q_start">
+    <input type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="${PLACEHOLDERS[schedId]}" value="${b&&b.val||''}" class="q_val">
+    <button class="bx" title="Remove">×</button>`;
   div.querySelector('.bx').addEventListener('click',()=>div.remove());
   return div;
 }
-function renderBlockRows(blocks){
-  const el=$('blocks');el.innerHTML='';
-  (blocks&&blocks.length?blocks:[{start:'00:00'}]).forEach(b=>el.appendChild(blockRow(b)));
+function renderSched(schedId,blocks){
+  const el=$(schedId+'Rows');el.innerHTML='';
+  (blocks&&blocks.length?blocks:[{start:'00:00'}]).forEach(b=>el.appendChild(schedRow(schedId,b)));
 }
-function collectBlocks(){
-  const rows=[...document.querySelectorAll('#blocks .blockrow')];
-  const blocks=[];
-  rows.forEach(r=>{
-    const start=r.querySelector('.b_start').value;
-    const icr=parseFloat(r.querySelector('.b_icr').value);
-    const isf=parseFloat(r.querySelector('.b_isf').value);
-    const target=parseFloat(r.querySelector('.b_target').value);
-    if(start&&icr>0&&isf>0&&target>0)blocks.push({start,icr,isf,target});
+function collectSched(schedId){
+  const out=[];
+  document.querySelectorAll('#'+schedId+'Rows .brow2').forEach(r=>{
+    const start=r.querySelector('.q_start').value;
+    const val=parseFloat(r.querySelector('.q_val').value);
+    if(start&&val>0)out.push({start,val});
   });
-  blocks.sort((a,b)=>a.start.localeCompare(b.start));
-  return blocks.slice(0,MAX_BLOCKS);
+  out.sort((a,b)=>a.start.localeCompare(b.start));
+  return out.slice(0,MAX_BLOCKS);
 }
-function ratiosAt(date,s){
-  const blocks=s.blocks||[];
-  if(!blocks.length)return null;
+function pickAt(date,blocks){
+  if(!blocks||!blocks.length)return null;
   const mins=date.getHours()*60+date.getMinutes();
   const toMins=t=>{const[a,b]=t.split(':');return(+a)*60+(+b)};
   let active=blocks[blocks.length-1]; // wraps from previous day
   for(const b of blocks){if(toMins(b.start)<=mins)active=b}
   return active;
 }
+function ratiosAt(date,s){
+  const i=pickAt(date,s.icrBlocks),c=pickAt(date,s.cfBlocks),t=pickAt(date,s.tgtBlocks);
+  if(!i||!c||!t)return null;
+  return {icr:i.val,isf:c.val,target:t.val,icrStart:i.start,cfStart:c.start,tgtStart:t.start,
+    label:'ICR@'+i.start+' · CF@'+c.start+' · tgt@'+t.start};
+}
 function loadSettingsUI(){
   const s=store.settings;
   SFIELDS.forEach(k=>{$('s_'+k).value=(s[k]??'')});
   $('s_damp').checked=s.damp!==false;
-  // migrate legacy single-ratio settings to one block
-  let blocks=s.blocks;
-  if((!blocks||!blocks.length)&&s.icr>0&&s.isf>0&&s.target>0){
-    blocks=[{start:'00:00',icr:s.icr,isf:s.isf,target:s.target}];
+  // migrate: combined blocks -> per-parameter schedules; legacy single ratios -> one block each
+  let ib=s.icrBlocks,cb=s.cfBlocks,tb=s.tgtBlocks;
+  if((!ib||!ib.length)&&s.blocks&&s.blocks.length){
+    ib=s.blocks.map(b=>({start:b.start,val:b.icr}));
+    cb=s.blocks.map(b=>({start:b.start,val:b.isf}));
+    tb=s.blocks.map(b=>({start:b.start,val:b.target}));
+  }else if((!ib||!ib.length)&&s.icr>0){
+    ib=[{start:'00:00',val:s.icr}];cb=[{start:'00:00',val:s.isf}];tb=[{start:'00:00',val:s.target}];
   }
-  renderBlockRows(blocks);
+  renderSched('icr',ib);renderSched('cf',cb);renderSched('tgt',tb);
 }
 function saveSettingsUI(){
   const s={};
   SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>=0)s[k]=v});
   s.damp=$('s_damp').checked;
-  s.blocks=collectBlocks();
-  if(!s.blocks.length)alert('No complete ratio block — enter start time, ICR, ISF and target on at least one row.');
+  s.icrBlocks=collectSched('icr');
+  s.cfBlocks=collectSched('cf');
+  s.tgtBlocks=collectSched('tgt');
+  if(!s.icrBlocks.length||!s.cfBlocks.length||!s.tgtBlocks.length)
+    alert('Each schedule needs at least one complete row (time + value): ICR, CF and Target.');
   store.settings=s;
   checkReady();
 }
-function settingsComplete(){const s=store.settings;return !!(s.blocks&&s.blocks.length)}
+function settingsComplete(){const s=store.settings;
+  return !!(s.icrBlocks&&s.icrBlocks.length&&s.cfBlocks&&s.cfBlocks.length&&s.tgtBlocks&&s.tgtBlocks.length)}
 function checkReady(){
   const ok=settingsComplete();
   $('setwarn').classList.toggle('show',!ok);
@@ -546,7 +563,7 @@ function runTreat(){
   if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
   const now=Date.now();
   const r=calcTreat(bg,iob,trendSel,sEff,now);
-  r.block=rt.start;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
+  r.block=rt.label;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
   r.ts=now;r.note=$('t_note').value.trim();
   lastTreat=r;
   renderTreat(r,sEff);
@@ -557,7 +574,7 @@ function renderTreat(r,s){
   else{st.textContent='NOT LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym+' (pre-emptive)';st.className='state ok'}
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
   let h='';
-  h+=li('Ratios','block from '+r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
+  h+=li('Ratios',r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
   h+=li('Lift to target','(target − BG) × ICR ÷ ISF',fmt(r.base,0)+' g');
   if(r.mult!==1)h+=li('Trend '+TRENDS[r.trend].sym,'× '+fmt(r.mult,2),fmt(r.base*r.mult,0)+' g');
   h+=li('IOB cover',fmt(r.iob,2)+' U × ICR × '+Math.round(r.scale*100)+'%','+'+fmt(r.iobCover,0)+' g');
@@ -639,7 +656,7 @@ function runCalc(){
   if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
   const now=Date.now();
   const r=calc(bg,carbs,iobManual,sEff,now);
-  r.block=rt.start;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
+  r.block=rt.label;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
   r.ts=now;r.note=$('note').value.trim();
   lastResult=r;
   renderResult(r,sEff);
@@ -651,7 +668,7 @@ function renderResult(r,s){
   else{st.textContent='AT TARGET — '+fmt(r.bg,1)+' mmol/L';st.className='state ok'}
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
   let h='';
-  h+=li('Ratios','block from '+r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
+  h+=li('Ratios',r.block,r.icrU+' · '+r.isfU+' · '+r.targetU);
   if(r.low){
     h+=li('Treatment carbs','no insulin — lifts BG to target',fmt(r.treatCarbs,0)+' g');
     h+=li('Excess carbs ÷ ICR','insulin only on carbs beyond treatment',fmt(r.carbBolus)+' U');
@@ -707,7 +724,9 @@ function renderStats(){
   h+=stat(lows.length?Math.round(checked.length/lows.length*100)+'%':'—','rechecked');
   h+=stat(checked.length?Math.round(rebounds.length/checked.length*100)+'%':'—','rebound >10',rebounds.length>0);
   h+=stat(meals.length,'meals logged');
-  h+=stat(meals.length?Math.round(meals.reduce((a,e)=>a+(e.carbs||0),0)/14)+' g':'—','avg carbs / day');
+  const totalCarbs=meals.reduce((a,e)=>a+(e.carbs||0),0)+lows.reduce((a,e)=>a+(e.eaten||0),0);
+  const activeDays=new Set(log.filter(e=>e.type!=='recheck').map(e=>new Date(e.ts).toDateString())).size;
+  h+=stat(activeDays?Math.round(totalCarbs/activeDays)+' g':'—','avg carbs / logged day');
   h+=`<div class="stat tod"><div class="l">Lows by time of day</div><div class="bars">${
     buckets.map(b=>`<div class="bar" style="height:${Math.round(b/mx*100)}%"></div>`).join('')
   }</div><div class="labs"><span>00–06</span><span>06–12</span><span>12–18</span><span>18–24</span></div></div>`;
@@ -774,7 +793,8 @@ function printDiary(){
   renderStats();
   const cut=Date.now()-14*86400000;
   const lows14=store.log.filter(e=>e.type==='low'&&e.ts>=cut).length;
-  const blockStr=(s.blocks||[]).map(b=>b.start+' → ICR '+b.icr+' / ISF '+b.isf+' / tgt '+b.target).join(' · ')||'—';
+  const sch=(arr,lab)=>lab+' ['+((arr||[]).map(b=>b.start+' '+b.val).join(', ')||'—')+']';
+  const blockStr=sch(s.icrBlocks,'ICR g/U')+' · '+sch(s.cfBlocks,'CF')+' · '+sch(s.tgtBlocks,'Target');
   let h=`<div class="ph"><h1>Carb_Calc — food & low-treatment diary</h1>
   <p>Generated ${new Date().toLocaleDateString('en-AU')} · ratio blocks: ${blockStr} · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
   <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Note</th></tr>`;
@@ -788,10 +808,11 @@ function printDiary(){
 
 /* ---------- wire up ---------- */
 $('btnSettings').addEventListener('click',()=>{loadSettingsUI();$('modal').classList.add('show')});
-$('btnAddBlock').addEventListener('click',()=>{
-  if(document.querySelectorAll('#blocks .blockrow').length>=MAX_BLOCKS){alert('Maximum '+MAX_BLOCKS+' blocks.');return}
-  $('blocks').appendChild(blockRow(null));
-});
+document.querySelectorAll('.badd').forEach(b=>b.addEventListener('click',()=>{
+  const id=b.dataset.s;
+  if(document.querySelectorAll('#'+id+'Rows .brow2').length>=MAX_BLOCKS){alert('Maximum '+MAX_BLOCKS+' blocks per schedule.');return}
+  $(id+'Rows').appendChild(schedRow(id,null));
+}));
 $('btnCloseSettings').addEventListener('click',()=>$('modal').classList.remove('show'));
 $('btnSaveSettings').addEventListener('click',()=>{saveSettingsUI();$('modal').classList.remove('show')});
 $('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('show')});
