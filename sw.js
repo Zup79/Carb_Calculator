@@ -1,4 +1,4 @@
-const CACHE = 'carb-calc-v10';
+const CACHE = 'carb-calc-v7';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png', './favicon-32.png'];
 
 self.addEventListener('install', e => {
