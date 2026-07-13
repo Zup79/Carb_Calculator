@@ -21,6 +21,7 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - Meal tag (breakfast / lunch / afternoon / dinner / snack), pre-selected from the clock, one tap to change — the note field then only carries what's different ("orange + usual lunch")
 - Bolus timing relative to first bite: before / with food / after, with optional minutes — captures pre-bolus behaviour for review
 - Context chips on both tabs (illness / stress / activity / unusual day), multi-select — flow through diary, CSV, and print
+- **IOB method** (Settings → Bolus): Method 1 (default) subtracts IOB from carbs + correction combined, so a large IOB can eat into the meal bolus itself. Method 2 subtracts IOB from the correction only, capped at the correction amount — it never spills into the meal bolus, and does nothing at all when BG is at or below target. Matches the two methods offered by Ypsomed's mylife app; the ledger shows which was used and, on Method 2, any IOB left over uncounted.
 
 **Time-block ratios — independent schedules**
 - ICR, correction factor (CF/ISF) and target BG each have their **own** schedule of up to 8 time blocks — boundaries don't need to align, matching how pumps program them
@@ -33,6 +34,16 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - CSV export and print/PDF for the educator, ratios and stats stamped in the header
 
 ## The maths
+
+**IOB method (bolus tab, not-low branch)**
+
+```
+Method 1 (default): dose = max(0, carbBolus + correction − IOB)
+Method 2:           iobApplied = correction > 0 ? min(IOB, correction) : 0
+                     dose = max(0, carbBolus + (correction − iobApplied))
+```
+
+Method 2's IOB never exceeds the correction term and is zero whenever BG is at or below target — so a large IOB can reduce or cancel a correction but can never reduce the meal bolus below the full carb amount. Method 1 has no such floor: excess IOB keeps subtracting until the whole dose, meal bolus included, floors at zero. The low-BG treat-carbs branch is unaffected by this setting either way.
 
 **Low treatment (grams)**
 

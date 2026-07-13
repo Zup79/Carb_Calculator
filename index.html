@@ -75,6 +75,8 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 .seg5 button{font-size:12px;font-family:var(--sans);font-weight:600;padding:8px 0}
 .seg3{grid-template-columns:repeat(3,1fr)}
 .seg3 button{font-size:12px;font-family:var(--sans);font-weight:600;padding:9px 0}
+.seg2{grid-template-columns:repeat(2,1fr)}
+.seg2 button{font-size:12px;font-family:var(--sans);font-weight:600;padding:9px 0}
 .timerow{display:grid;grid-template-columns:2.4fr 1fr;gap:8px;align-items:stretch}
 .timerow input{font-size:16px;padding:9px 8px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
@@ -377,6 +379,14 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
       </div>
       <div></div>
     </div>
+    <div class="field">
+      <label>IOB method <span class="unit">how IOB reduces the bolus tab suggestion</span></label>
+      <div class="seg seg2" id="iobMethodSeg">
+        <button data-im="m1" class="on">Method 1</button>
+        <button data-im="m2">Method 2</button>
+      </div>
+      <p class="sub" style="margin-top:6px">Method 1 (default): IOB subtracted from carbs + correction combined. Method 2: IOB subtracted from the correction only — meal carbs are always given in full; a below-target BG can still reduce the total via the correction term.</p>
+    </div>
     <h3>Low treatment</h3>
     <div class="row2">
       <div class="field">
@@ -499,7 +509,19 @@ function calc(bg,carbs,iobManual,s,now){
     r.carbBolus=carbs/icr;
     r.correction=(bg-target)/isf;
     if(s.damp&&cob>0.5){r.correction*=0.5;r.damped=true}
-    r.dose=Math.max(0,r.carbBolus+r.correction-iob);
+    r.iobMethod=(s.iobMethod==='m2')?'m2':'m1';
+    if(r.iobMethod==='m2'){
+      // Method 2: IOB is subtracted only from the correction, capped at the correction
+      // amount — it can never spill over into the meal bolus. If correction is zero or
+      // negative (BG at/below target), no IOB is applied at all.
+      r.iobApplied=r.correction>0?Math.min(iob,r.correction):0;
+      r.iobLeftover=iob-r.iobApplied;
+      r.correctionAdj=r.correction-r.iobApplied;
+      r.dose=Math.max(0,r.carbBolus+r.correctionAdj);
+    }else{
+      // Method 1 (default): IOB reduces the combined carb+correction total, unlimited
+      r.dose=Math.max(0,r.carbBolus+r.correction-iob);
+    }
   }
   if(s.maxdose&&r.dose>s.maxdose){r.dose=s.maxdose;r.capped=true}
   r.dose=Math.round(r.dose*20)/20;
@@ -550,6 +572,8 @@ function loadSettingsUI(){
   const s=store.settings;
   SFIELDS.forEach(k=>{$('s_'+k).value=(s[k]??'')});
   $('s_damp').checked=s.damp!==false;
+  const im=(s.iobMethod==='m2')?'m2':'m1';
+  document.querySelectorAll('#iobMethodSeg button').forEach(b=>b.classList.toggle('on',b.dataset.im===im));
   // migrate: combined blocks -> per-parameter schedules; legacy single ratios -> one block each
   let ib=s.icrBlocks,cb=s.cfBlocks,tb=s.tgtBlocks;
   if((!ib||!ib.length)&&s.blocks&&s.blocks.length){
@@ -565,6 +589,7 @@ function saveSettingsUI(){
   const s={};
   SFIELDS.forEach(k=>{const v=parseFloat($('s_'+k).value);if(!isNaN(v)&&v>=0)s[k]=v});
   s.damp=$('s_damp').checked;
+  s.iobMethod=document.querySelector('#iobMethodSeg button.on')?.dataset.im==='m2'?'m2':'m1';
   s.icrBlocks=collectSched('icr');
   s.cfBlocks=collectSched('cf');
   s.tgtBlocks=collectSched('tgt');
@@ -615,6 +640,9 @@ document.querySelectorAll('#mealSeg button').forEach(b=>b.addEventListener('clic
 setMeal(guessMeal(new Date()));
 
 let timingSel='with';
+document.querySelectorAll('#iobMethodSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#iobMethodSeg button').forEach(x=>x.classList.toggle('on',x===b));
+}));
 document.querySelectorAll('#timingSeg button').forEach(b=>b.addEventListener('click',()=>{
   timingSel=b.dataset.t;
   document.querySelectorAll('#timingSeg button').forEach(x=>x.classList.toggle('on',x===b));
@@ -766,10 +794,15 @@ function renderResult(r,s){
     h+=li('Treatment carbs','no insulin — lifts BG to target',fmt(r.treatCarbs,0)+' g');
     h+=li('Excess carbs ÷ ICR','insulin only on carbs beyond treatment',fmt(r.carbBolus)+' U');
   }else{
-    h+=li('Carbs ÷ ICR',fmt(r.carbs,0)+' g ÷ '+s.icr,fmt(r.carbBolus)+' U');
+    h+=li('Carbs ÷ ICR',fmt(r.carbs,0)+' g ÷ '+s.icr+(r.iobMethod==='m2'?' — always given in full (Method 2)':''),fmt(r.carbBolus)+' U');
     h+=li('Correction'+(r.damped?' (halved)':''),(r.damped?'COB '+fmt(r.cob,0)+' g still absorbing':'(BG − target) ÷ ISF'),fmt(r.correction)+' U');
+    if(r.iobMethod==='m2'){
+      h+=li('− IOB (correction only, capped)',r.iobSource==='pump'?'from pump · Method 2':'app estimate · Method 2','−'+fmt(r.iobApplied)+' U',true);
+      if(r.iobLeftover>0.01)h+=li('IOB not applied','exceeds correction — meal carbs always given in full',fmt(r.iobLeftover)+' U left over');
+      h+=li('Correction after IOB','',fmt(r.correctionAdj)+' U');
+    }
   }
-  h+=li('− IOB',r.iobSource==='pump'?'from pump':'app estimate','−'+fmt(r.iob)+' U',true);
+  if(r.iobMethod!=='m2')h+=li('− IOB',r.iobSource==='pump'?'from pump':'app estimate','−'+fmt(r.iob)+' U',true);
   if(r.capped)h+=li('Capped','max shown dose setting',fmt(s.maxdose)+' U');
   $('ledger').innerHTML=h;
   $('dose').innerHTML=fmt(r.dose)+'<small> U</small>';
@@ -789,6 +822,7 @@ function saveEntry(){
     iobSource:lastResult.iobSource,cob:lastResult.cob,carbBolus:lastResult.carbBolus,
     correction:lastResult.correction,dose:lastResult.dose,delivered:isNaN(d)?0:d,note:lastResult.note,
     meal:lastResult.meal,timing:lastResult.timing,timingMins:lastResult.timingMins,context:lastResult.context,
+    iobMethod:lastResult.iobMethod,
     block:lastResult.block,icr:lastResult.icrU,isf:lastResult.isfU,target:lastResult.targetU};
   const log=store.log;log.push(e);store.log=log;
   lastResult=null;
@@ -878,14 +912,14 @@ function renderLog(){
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     rows.push([dstr(e.ts),tstr(e.ts),e.type,e.bg.toFixed(1),
       e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
       e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
       e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
-      e.block||'',e.icr??'',e.isf??'',e.target??'',e.note||'']);
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
   const a=document.createElement('a');
