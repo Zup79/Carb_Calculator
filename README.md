@@ -63,9 +63,17 @@ remaining = amount × max(0, 1 − floor(elapsed_min / 30) × 30 ÷ (duration_hr
 
 Meal carbs and low-treatment carbs are tracked separately: meal carbs count as covered by their insulin, so only previous *treatment* carbs offset a new low suggestion, and only *meal* carbs drive bolus-side damping.
 
-## Educator companion report
+## Diary data report
 
-`report.html` is a standalone report generator for clinic visits. Opened from the same site as the app (Diary tab → Educator report), "Load from this device" pulls the diary and ratio schedules straight from the app's local storage — no copy-paste, built for doing the whole thing from a phone. From any other device, paste a Carb_Calc CSV export (schema unchanged) instead. Set remaining pump settings and period in the config panel, then print to A4 PDF. The report surfaces the meal tags, bolus timing (with pre-bolus rate and median lead time) and context flags alongside its low-treatment and block-pattern analysis; CSVs from older app versions still build, with those sections gracefully omitted. Design rule: if the pump software already prints it, the report doesn't reprint it — it carries only what the pump can't know: rescue carbohydrate, what the food was, and why. Linked from the Diary tab.
+`report.html` is a standalone, durable data report — the diary rendered faithfully and nothing more. Opened from the same site as the app (Diary tab → Educator report), "Load from this device" pulls the diary and ratio schedules straight from the app's local storage — no copy-paste, built for doing the whole thing from a phone. From any other device, paste a Carb_Calc CSV export instead. Print to A4 PDF.
+
+Design rule: **no analysis in code.** The page groups by day, orders by time, and totals by arithmetic (counts and sums only — no thresholds, no pattern detection, no interpretive sentences). It is schema-agnostic: known columns get friendly labels, unknown future columns are rendered under their raw header names, and columns empty across the whole dataset are dropped — so new app fields appear in the report with no code change, and old CSVs still build cleanly.
+
+## Analysis workflow
+
+Pattern-spotting, thresholds and judgment deliberately live **outside** the code, in a live review conversation that adapts to whatever the data shows. `carb_calc_analysis_prompt.md` (in this repo) is the standing prompt: paste it into a Claude Project with the latest CSV export, and it produces findings with row references plus questions for the educator — under strict framing rules (association ≠ cause, small-n humility, no medical advice, nothing pump software already reports).
+
+Pipeline: **app logs → CSV export → data report (durable record, PDF) → analysis chat (interpretation, regenerated fresh each time)**.
 
 ## Known limitations
 
