@@ -71,6 +71,16 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   font-size:18px;cursor:pointer;color:var(--mut);font-family:var(--mono)}
 .seg button.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .seg button small{display:block;font-size:9px;font-family:var(--sans);letter-spacing:.05em}
+.seg5{grid-template-columns:repeat(5,1fr)}
+.seg5 button{font-size:12px;font-family:var(--sans);font-weight:600;padding:8px 0}
+.seg3{grid-template-columns:repeat(3,1fr)}
+.seg3 button{font-size:12px;font-family:var(--sans);font-weight:600;padding:9px 0}
+.timerow{display:grid;grid-template-columns:2.4fr 1fr;gap:8px;align-items:stretch}
+.timerow input{font-size:16px;padding:9px 8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;
+  font-size:12.5px;font-weight:600;color:var(--mut);cursor:pointer;font-family:var(--sans)}
+.chips button.on{background:var(--ok);border-color:var(--ok);color:#fff}
 
 /* result ledger */
 .result{display:none}
@@ -223,7 +233,14 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
       </div>
     </div>
     <div class="field">
-      <label for="t_note">Note <span class="unit">optional — what you ate, context</span></label>
+      <label>Context <span class="unit">tap any that apply</span></label>
+      <div class="chips" id="ctxTreat">
+        <button data-c="illness">Illness</button><button data-c="stress">Stress</button>
+        <button data-c="activity">Activity</button><button data-c="unusual">Unusual day</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="t_note">Note <span class="unit">optional — what you ate</span></label>
       <textarea id="t_note" placeholder="e.g. jelly beans + half juice box"></textarea>
     </div>
     <button class="btn btn-go" id="btnTreat">How many grams?</button>
@@ -261,12 +278,40 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
       </div>
     </div>
     <div class="field">
+      <label>Meal</label>
+      <div class="seg seg5" id="mealSeg">
+        <button data-m="breakfast">Bfast</button>
+        <button data-m="lunch">Lunch</button>
+        <button data-m="afternoon">Arvo</button>
+        <button data-m="dinner">Dinner</button>
+        <button data-m="snack">Snack</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Bolus timing <span class="unit">relative to first bite</span></label>
+      <div class="timerow">
+        <div class="seg seg3" id="timingSeg">
+          <button data-t="before">Before</button>
+          <button data-t="with" class="on">With food</button>
+          <button data-t="after">After</button>
+        </div>
+        <input id="timingMins" type="number" inputmode="numeric" step="1" min="0" max="120" placeholder="mins" disabled>
+      </div>
+    </div>
+    <div class="field">
       <label for="iobman">IOB from pump <span class="unit">U — optional, overrides app estimate</span></label>
       <input id="iobman" type="number" inputmode="decimal" step="0.05" min="0" max="30" placeholder="app estimate used if blank">
     </div>
     <div class="field">
-      <label for="note">Note <span class="unit">optional — food, context</span></label>
-      <textarea id="note" placeholder="e.g. 2 slices toast + banana"></textarea>
+      <label>Context <span class="unit">tap any that apply</span></label>
+      <div class="chips" id="ctxBolus">
+        <button data-c="illness">Illness</button><button data-c="stress">Stress</button>
+        <button data-c="activity">Activity</button><button data-c="unusual">Unusual day</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="note">Note <span class="unit">only what's different — e.g. "orange + usual lunch"</span></label>
+      <textarea id="note" placeholder="e.g. orange + usual lunch"></textarea>
     </div>
     <button class="btn btn-go" id="btnCalc">Compare</button>
   </div>
@@ -295,6 +340,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   <div class="loghead">
     <h2>Diary</h2>
     <div class="actions">
+      <button id="btnReport">Educator report</button>
       <button id="btnPrint">Print / PDF</button>
       <button id="btnCsv">CSV</button>
     </div>
@@ -550,6 +596,48 @@ document.querySelectorAll('#trendSeg button').forEach(b=>b.addEventListener('cli
   document.querySelectorAll('#trendSeg button').forEach(x=>x.classList.toggle('on',x===b));
 }));
 
+/* ---------- meal / timing / context state ---------- */
+const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',afternoon:'Afternoon',dinner:'Dinner',snack:'Snack'};
+function guessMeal(d){
+  const m=d.getHours()*60+d.getMinutes();
+  if(m<630)return 'breakfast';        // <10:30
+  if(m<840)return 'lunch';            // <14:00
+  if(m<1020)return 'afternoon';       // <17:00
+  if(m<1260)return 'dinner';          // <21:00
+  return 'snack';
+}
+let mealSel='lunch';
+function setMeal(m){
+  mealSel=m;
+  document.querySelectorAll('#mealSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+}
+document.querySelectorAll('#mealSeg button').forEach(b=>b.addEventListener('click',()=>setMeal(b.dataset.m)));
+setMeal(guessMeal(new Date()));
+
+let timingSel='with';
+document.querySelectorAll('#timingSeg button').forEach(b=>b.addEventListener('click',()=>{
+  timingSel=b.dataset.t;
+  document.querySelectorAll('#timingSeg button').forEach(x=>x.classList.toggle('on',x===b));
+  const mi=$('timingMins');
+  mi.disabled=(timingSel==='with');
+  if(mi.disabled)mi.value='';
+}));
+function timingText(t,mins){
+  if(t==='with'||!t)return 'with food';
+  const m=(mins!=null&&mins!=='')?mins+' min ':'';
+  return m+(t==='before'?'before':'after');
+}
+function wireChips(id){
+  document.querySelectorAll('#'+id+' button').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+}
+function readChips(id){
+  return [...document.querySelectorAll('#'+id+' button.on')].map(b=>b.dataset.c);
+}
+function clearChips(id){
+  document.querySelectorAll('#'+id+' button.on').forEach(b=>b.classList.remove('on'));
+}
+wireChips('ctxTreat');wireChips('ctxBolus');
+
 /* ---------- treat UI ---------- */
 let lastTreat=null;
 function fmt(n,d=2){return n.toFixed(d)}
@@ -564,7 +652,7 @@ function runTreat(){
   const now=Date.now();
   const r=calcTreat(bg,iob,trendSel,sEff,now);
   r.block=rt.label;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
-  r.ts=now;r.note=$('t_note').value.trim();
+  r.ts=now;r.note=$('t_note').value.trim();r.context=readChips('ctxTreat');
   lastTreat=r;
   renderTreat(r,sEff);
 }
@@ -595,13 +683,14 @@ function saveTreat(){
   if(!lastTreat)return;
   const e={type:'low',ts:lastTreat.ts,bg:lastTreat.bg,iob:lastTreat.iob,trend:lastTreat.trend,
     recGrams:lastTreat.grams,eaten:parseFloat($('t_eaten').value)||0,note:lastTreat.note,
+    context:lastTreat.context,
     block:lastTreat.block,icr:lastTreat.icrU,isf:lastTreat.isfU,target:lastTreat.targetU};
   const log=store.log;log.push(e);store.log=log;
   const mins=store.settings.recheck||15;
   localStorage.setItem('bc_pending',JSON.stringify({parent:e.ts,due:e.ts+mins*60000}));
   lastTreat=null;
   $('t_result').classList.remove('show');
-  $('t_bg').value='';$('t_iob').value='';$('t_note').value='';
+  $('t_bg').value='';$('t_iob').value='';$('t_note').value='';clearChips('ctxTreat');
   tickRecheck();
 }
 
@@ -658,6 +747,10 @@ function runCalc(){
   const r=calc(bg,carbs,iobManual,sEff,now);
   r.block=rt.label;r.icrU=rt.icr;r.isfU=rt.isf;r.targetU=rt.target;
   r.ts=now;r.note=$('note').value.trim();
+  r.meal=mealSel;r.timing=timingSel;
+  const tm=parseInt($('timingMins').value);
+  r.timingMins=(timingSel!=='with'&&!isNaN(tm))?tm:null;
+  r.context=readChips('ctxBolus');
   lastResult=r;
   renderResult(r,sEff);
 }
@@ -695,11 +788,16 @@ function saveEntry(){
   const e={type:'bolus',ts:lastResult.ts,bg:lastResult.bg,carbs:lastResult.carbs,iob:lastResult.iob,
     iobSource:lastResult.iobSource,cob:lastResult.cob,carbBolus:lastResult.carbBolus,
     correction:lastResult.correction,dose:lastResult.dose,delivered:isNaN(d)?0:d,note:lastResult.note,
+    meal:lastResult.meal,timing:lastResult.timing,timingMins:lastResult.timingMins,context:lastResult.context,
     block:lastResult.block,icr:lastResult.icrU,isf:lastResult.isfU,target:lastResult.targetU};
   const log=store.log;log.push(e);store.log=log;
   lastResult=null;
   $('result').classList.remove('show');
   $('bg').value='';$('carbs').value='';$('iobman').value='';$('note').value='';
+  clearChips('ctxBolus');setMeal(guessMeal(new Date()));
+  timingSel='with';
+  document.querySelectorAll('#timingSeg button').forEach(x=>x.classList.toggle('on',x.dataset.t==='with'));
+  $('timingMins').value='';$('timingMins').disabled=true;
 }
 
 /* ---------- stats (14 days) ---------- */
@@ -724,6 +822,8 @@ function renderStats(){
   h+=stat(lows.length?Math.round(checked.length/lows.length*100)+'%':'—','rechecked');
   h+=stat(checked.length?Math.round(rebounds.length/checked.length*100)+'%':'—','rebound >10',rebounds.length>0);
   h+=stat(meals.length,'meals logged');
+  const pre=meals.filter(e=>e.timing==='before').length;
+  h+=stat(meals.length?Math.round(pre/meals.length*100)+'%':'—','pre-bolused');
   const totalCarbs=meals.reduce((a,e)=>a+(e.carbs||0),0)+lows.reduce((a,e)=>a+(e.eaten||0),0);
   const activeDays=new Set(log.filter(e=>e.type!=='recheck').map(e=>new Date(e.ts).toDateString())).size;
   h+=stat(activeDays?Math.round(totalCarbs/activeDays)+' g':'—','avg carbs / logged day');
@@ -746,10 +846,11 @@ function renderLog(){
     if(d!==day){day=d;h+=`<div class="day">${d}</div>`}
     const idx=store.log.indexOf(e);
     if(e.type==='low'){
+      const lctx=(e.context&&e.context.length)?'['+e.context.join(' · ')+'] ':'';
       h+=`<div class="entry elow">
         <div class="top"><span><span class="tag">LOW</span> BG <b>${e.bg.toFixed(1)}</b> ${TRENDS[e.trend]?TRENDS[e.trend].sym:''}</span><span class="t">${tstr(e.ts)}</span></div>
         <div class="mid"><span>rec <b>${e.recGrams} g</b></span><span>ate <b>${e.eaten} g</b></span><span>IOB ${e.iob.toFixed(2)}</span></div>
-        ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
+        ${(lctx||e.note)?`<div class="note">${lctx}${(e.note||'').replace(/</g,'&lt;')}</div>`:''}
         <button class="del" data-i="${idx}">delete</button></div>`;
     }else if(e.type==='recheck'){
       const par=store.log.find(p=>p.ts===e.parent);
@@ -757,10 +858,13 @@ function renderLog(){
         <div class="top"><span><span class="tag">RECHECK</span> BG <b>${e.bg.toFixed(1)}</b>${par?' <span style="color:var(--mut)">(was '+par.bg.toFixed(1)+')</span>':''}</span><span class="t">${tstr(e.ts)}</span></div>
         <button class="del" data-i="${idx}">delete</button></div>`;
     }else{
+      const mtag=(e.meal&&MEAL_LABEL[e.meal])?MEAL_LABEL[e.meal].toUpperCase():'MEAL';
+      const btim=e.timing?`<span>bolus <b>${timingText(e.timing,e.timingMins)}</b></span>`:'';
+      const bctx=(e.context&&e.context.length)?'['+e.context.join(' · ')+'] ':'';
       h+=`<div class="entry ebolus">
-        <div class="top"><span><span class="tag">MEAL</span> BG <b>${e.bg.toFixed(1)}</b> · ${e.carbs||0} g</span><span class="t">${tstr(e.ts)}</span></div>
-        <div class="mid"><span>sugg <b>${e.dose.toFixed(2)} U</b></span><span>pump <b>${(e.delivered||0).toFixed(2)} U</b></span><span>IOB ${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</span>${e.cob>0.5?`<span>COB ${e.cob.toFixed(0)} g</span>`:''}</div>
-        ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
+        <div class="top"><span><span class="tag">${mtag}</span> BG <b>${e.bg.toFixed(1)}</b> · ${e.carbs||0} g</span><span class="t">${tstr(e.ts)}</span></div>
+        <div class="mid"><span>sugg <b>${e.dose.toFixed(2)} U</b></span><span>pump <b>${(e.delivered||0).toFixed(2)} U</b></span><span>IOB ${e.iob.toFixed(2)}${e.iobSource==='pump'?'*':''}</span>${btim}${e.cob>0.5?`<span>COB ${e.cob.toFixed(0)} g</span>`:''}</div>
+        ${(bctx||e.note)?`<div class="note">${bctx}${(e.note||'').replace(/</g,'&lt;')}</div>`:''}
         <button class="del" data-i="${idx}">delete</button></div>`;
     }
   });
@@ -774,12 +878,13 @@ function renderLog(){
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','block','icr','isf','target','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     rows.push([dstr(e.ts),tstr(e.ts),e.type,e.bg.toFixed(1),
       e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
       e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
+      e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
       e.block||'',e.icr??'',e.isf??'',e.target??'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
@@ -797,9 +902,11 @@ function printDiary(){
   const blockStr=sch(s.icrBlocks,'ICR g/U')+' · '+sch(s.cfBlocks,'CF')+' · '+sch(s.tgtBlocks,'Target');
   let h=`<div class="ph"><h1>Carb_Calc — food & low-treatment diary</h1>
   <p>Generated ${new Date().toLocaleDateString('en-AU')} · ratio blocks: ${blockStr} · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
-  <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Note</th></tr>`;
+  <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Bolus timing</th><th class="l">Note</th></tr>`;
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
-    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${e.type}</td><td>${e.bg.toFixed(1)}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
+    const ptype=e.type==='bolus'?(e.meal||'meal'):e.type;
+    const pctx=(e.context&&e.context.length)?'['+e.context.join('; ')+'] ':'';
+    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${ptype}</td><td>${e.bg.toFixed(1)}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${e.timing?timingText(e.timing,e.timingMins):''}</td><td class="l">${pctx}${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
   });
   h+=`</table><p class="pfoot">* IOB read from pump display. COB/IOB estimates use a linear 30-minute stepped decay (carbs ${s.carbhrs||3} h, insulin ${s.iobhrs||4} h). Low-treatment suggestions: (target − BG) × ICR ÷ ISF × trend + IOB × ICR × weighting − previous treatment absorbing. All figures for comparison and record only.</p>`;
   $('printArea').innerHTML=h;
@@ -822,6 +929,7 @@ $('btnCalc').addEventListener('click',runCalc);
 $('btnSave').addEventListener('click',saveEntry);
 $('rcSave').addEventListener('click',saveRecheck);
 $('btnCsv').addEventListener('click',exportCsv);
+$('btnReport').addEventListener('click',()=>window.open('report.html','_blank'));
 $('btnPrint').addEventListener('click',printDiary);
 
 checkReady();

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carb_Calc — Educator Companion Report</title>
+<style>
+  :root{
+    --navy:#1F3864; --navy-soft:#3A5285; --ink:#1A2B33; --muted:#6B7B84;
+    --rule:#C9D1D6; --rule-light:#E4E9EC;
+    --in:#1E9E8A; --high:#E8A33D; --low:#E05A5A;
+    --shade:#FBF0F0; --paper:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:#EEF1F3;color:var(--ink);
+       font-family:Calibri,"Segoe UI",system-ui,sans-serif;font-size:13px;line-height:1.35}
+
+  /* ---------- app chrome (not printed) ---------- */
+  .chrome{max-width:880px;margin:0 auto 18px;background:#fff;border:1px solid var(--rule);padding:14px 16px}
+  .chrome h1{margin:0 0 2px;font-size:15px;color:var(--navy)}
+  .chrome p.lede{margin:0 0 12px;font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  button{font:inherit;font-weight:600;padding:6px 13px;border:1px solid var(--navy);
+         background:var(--navy);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--navy)}
+  button:hover{opacity:.88}
+  textarea{width:100%;height:110px;font-family:Consolas,ui-monospace,monospace;font-size:11px;
+           border:1px solid var(--rule);padding:8px;resize:vertical}
+  details{margin-top:10px;border-top:1px solid var(--rule-light);padding-top:8px}
+  summary{cursor:pointer;font-weight:600;color:var(--navy);font-size:12px}
+  .cfg{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;margin-top:10px;align-items:center}
+  .cfg label{font-size:11.5px;color:var(--muted)}
+  .cfg input{font:inherit;font-size:11.5px;padding:4px 6px;border:1px solid var(--rule);width:100%;
+             font-family:Consolas,ui-monospace,monospace}
+  .err{color:var(--low);font-size:12px;font-weight:600;margin-top:6px}
+
+  /* ---------- report page ---------- */
+  .page{max-width:880px;margin:0 auto;background:var(--paper);border:1px solid var(--rule);
+        padding:26px 30px 30px}
+  .mast{display:flex;justify-content:space-between;align-items:flex-end;
+        border-bottom:2.5px solid var(--navy);padding-bottom:8px}
+  .mast h2{margin:0;font-size:19px;font-weight:700;color:var(--navy)}
+  .mast .sub{margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+  .mast .who{text-align:right;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .mast .who b{color:var(--ink);font-size:13px}
+
+  .callout{margin:10px 0 0;padding:7px 10px;background:#F5F7F9;border-left:3px solid var(--navy-soft);
+           font-size:11.5px;color:#33454F}
+  .callout b{color:var(--navy)}
+  .callout.warn{background:var(--shade);border-left-color:var(--low)}
+  .callout.warn b{color:var(--low)}
+
+  h3{margin:22px 0 8px;font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;
+     letter-spacing:.9px;border-bottom:1px solid var(--rule);padding-bottom:4px}
+  h3 span{float:right;text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted);font-size:11px}
+
+  .strip{display:flex;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .stat{flex:1;background:#fff;padding:8px 10px}
+  .stat .n{font-size:20px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+  .stat .n.warn{color:var(--low)}
+  .stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:1px}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+  th{background:var(--navy);color:#fff;font-weight:600;text-align:left;padding:5px 7px;font-size:10.5px;
+     text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--navy)}
+  td{padding:4px 7px;border:1px solid var(--rule-light)}
+  tbody tr:nth-child(even) td{background:#FAFBFC}
+  .num{text-align:right}
+  .quiet{color:var(--muted)}
+  .flag{color:var(--low);font-weight:700}
+  .hit{background:#FBF0F0 !important}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;background:var(--low)}
+
+  .chartwrap{border:1px solid var(--rule);padding:8px 6px 4px;background:#fff}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:6px;padding-left:6px}
+  .legend i{display:inline-block;width:9px;height:9px;margin-right:4px;vertical-align:middle}
+
+  .note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
+  .note b{color:var(--ink)}
+  ul.q{margin:6px 0 0;padding:0;list-style:none;column-count:2;column-gap:20px}
+  ul.q li{padding:5px 0 5px 22px;border-bottom:1px solid var(--rule-light);position:relative;
+          font-size:12.5px;break-inside:avoid}
+  ul.q li:before{content:"\2610";position:absolute;left:2px;color:var(--navy-soft)}
+  footer{margin-top:22px;padding-top:8px;border-top:1px solid var(--rule);font-size:10.5px;
+         color:var(--muted);display:flex;justify-content:space-between}
+
+  @media print{
+    body{background:#fff;padding:0}
+    .chrome{display:none !important}
+    .page{border:0;max-width:none;padding:12mm}
+    h3{break-after:avoid} table{break-inside:auto} tr{break-inside:avoid}
+    @page{size:A4;margin:0}
+  }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <h1>Educator Companion Report — generator</h1>
+  <p class="lede">On the same device as the app, "Load from this device" pulls the diary and settings straight from Carb_Calc — no copy-paste. Otherwise paste a Carb_Calc CSV export (existing schema, unchanged). Everything below regenerates. Print to PDF when you're happy.</p>
+  <div class="row">
+    <button onclick="loadFromDevice()">Load from this device</button>
+    <button class="ghost" onclick="build()">Generate report</button>
+    <button class="ghost" onclick="window.print()">Print / save as PDF</button>
+    <button class="ghost" onclick="document.getElementById('csv').value=SAMPLE;build()">Reload sample data</button>
+  </div>
+  <textarea id="csv" spellcheck="false"></textarea>
+  <div id="err" class="err"></div>
+
+  <details>
+    <summary>Pump settings &amp; report period</summary>
+    <div class="cfg">
+      <label>Patient</label><input id="cfgName" value="Brian Dalton">
+      <label>Subtitle</label><input id="cfgSub" value="Type 1 · DOB 19 May 1979">
+      <label>CGM period</label><input id="cfgCgm" value="14 Jun – 13 Jul 2026 (30 days)">
+      <label>Insulin period</label><input id="cfgIns" value="9 Jul – 13 Jul 2026 (~4 days)">
+      <label>ICR (g/U)</label><input id="cfgIcr" value="00:00=11, 02:00=8, 09:00=7, 11:30=8, 14:00=10, 19:00=8">
+      <label>CF (mmol/U)</label><input id="cfgCf"  value="00:00=1.5, 04:00=2.5, 13:00=2.8, 15:00=3.2, 19:00=2.8, 21:00=1.7">
+      <label>Basal (U/hr)</label><input id="cfgBasal" value="00:00=1.0, 02:00=1.2, 07:30=1.0, 13:00=0.8, 21:00=1.0">
+      <label>Target (mmol/L)</label><input id="cfgTgt" value="6.1">
+    </div>
+  </details>
+</div>
+
+<div class="page" id="report"></div>
+
+<script>
+/* ============================================================
+   Carb_Calc — Educator Companion Report
+   Drop-in module. Entry point: renderCompanion(rows, cfg) -> HTML
+
+   Design rule enforced throughout:
+     If Glooko already prints it, this page does not reprint it.
+     This page carries only what the pump cannot know:
+       rescue carbohydrate, what the food was, and why.
+   ============================================================ */
+
+/* ---------- meal / timing / context display ---------- */
+function fmtMeal(m){ if(!m) return '—'; return m.charAt(0).toUpperCase()+m.slice(1); }
+function fmtTiming(t, mins){
+  if(!t) return '—';
+  if(t==='with') return 'with food';
+  const m = (mins!=null && String(mins).trim()!=='') ? mins+' min ' : '';
+  return m + (t==='before' ? 'before' : 'after');
+}
+function fmtCtx(c){ return c ? c.split(';').map(s=>s.trim()).filter(Boolean).join(' · ') : ''; }
+
+/* ---------- load direct from the app (same origin) ---------- */
+const TREND_SYM={dd:'\u2193\u2193',d:'\u2193',f:'\u2192',u:'\u2191'};
+function _d(ts){return new Date(ts).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+function _t(ts){return new Date(ts).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function _esc(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function loadFromDevice(){
+  const err=document.getElementById('err'); err.textContent='';
+  let log,settings;
+  try{log=JSON.parse(localStorage.getItem('bc_log'))||[]}catch(e){log=[]}
+  try{settings=JSON.parse(localStorage.getItem('bc_settings'))||{}}catch(e){settings={}}
+  if(!log.length){
+    err.textContent='No Carb_Calc diary found on this device. This only works when the report is opened from the same site as the app (and in the same browser). Paste a CSV export instead.';
+    return;
+  }
+  // identical header + row generation to the app's CSV export
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','note']];
+  [...log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
+    rows.push([_d(e.ts),_t(e.ts),e.type,(e.bg!=null?e.bg.toFixed(1):''),
+      e.trend?(TREND_SYM[e.trend]||''):'',e.carbs??'',e.recGrams??'',e.eaten??'',
+      e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
+      e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
+      e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.note||'']);
+  });
+  document.getElementById('csv').value=rows.map(r=>r.map(_esc).join(',')).join('\n');
+  // prefill pump settings from the app's ratio schedules
+  const sched=a=>(a||[]).map(b=>b.start+'='+b.val).join(', ');
+  if(settings.icrBlocks&&settings.icrBlocks.length)document.getElementById('cfgIcr').value=sched(settings.icrBlocks);
+  if(settings.cfBlocks&&settings.cfBlocks.length)document.getElementById('cfgCf').value=sched(settings.cfBlocks);
+  if(settings.tgtBlocks&&settings.tgtBlocks.length)document.getElementById('cfgTgt').value=settings.tgtBlocks[0].val;
+  // date range covered by the diary
+  const t0=Math.min(...log.map(e=>e.ts)),t1=Math.max(...log.map(e=>e.ts));
+  const days=Math.max(1,Math.round((t1-t0)/86400000)+1);
+  const short=ts=>new Date(ts).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('cfgIns').value=short(t0)+' \u2013 '+short(t1)+' ('+days+' days)';
+  build();
+}
+
+/* ---------- CSV ---------- */
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/).filter(l=>l.trim());
+  const hdr = splitLine(lines[0]).map(h=>h.trim());
+  return lines.slice(1).map(l=>{
+    const c = splitLine(l), o = {};
+    hdr.forEach((h,i)=> o[h] = (c[i]??'').trim());
+    return o;
+  });
+}
+function splitLine(l){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<l.length;i++){
+    const ch=l[i];
+    if(ch==='"'){ if(q && l[i+1]==='"'){cur+='"';i++;} else q=!q; }
+    else if(ch===',' && !q){ out.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  out.push(cur); return out;
+}
+
+/* ---------- helpers ---------- */
+const MONTHS={january:0,february:1,march:2,april:3,may:4,june:5,july:6,
+              august:7,september:8,october:9,november:10,december:11};
+function toDate(dateStr, timeStr){
+  const m = dateStr.replace(/^[A-Za-z]+,\s*/,'').match(/(\d+)\s+([A-Za-z]+)\s+(\d{4})/);
+  const [h,mi] = timeStr.split(':').map(Number);
+  return new Date(+m[3], MONTHS[m[2].toLowerCase()], +m[1], h, mi);
+}
+const hrs   = t => { const [h,m]=t.split(':').map(Number); return h + m/60; };
+const num   = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+const dayKey= d => d.toISOString().slice(0,10);
+const fmtDay= d => d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+const mean  = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+const esc   = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const sgn   = n => (n>0?'+':'') + n.toFixed(2);
+
+/* schedule string "00:00=11, 02:00=8" -> [{t:0,v:11},...] sorted */
+function parseSched(s){
+  return s.split(',').map(p=>{
+    const [k,v] = p.split('=');
+    return {t: hrs(k.trim()), v: parseFloat(v)};
+  }).sort((a,b)=>a.t-b.t);
+}
+const schedAt = (sched,h) => { let v=sched[0].v; for(const s of sched){ if(h>=s.t) v=s.v; } return v; };
+
+/* ---------- meal slots ----------
+   Slot comes from an explicit meal_tag column if present (the field we're
+   recommending you add); otherwise inferred from clock time.               */
+const SLOTS = [
+  {key:'breakfast', label:'Breakfast', from:4,    to:11},
+  {key:'lunch',     label:'Lunch',     from:11,   to:14},
+  {key:'afternoon', label:'Afternoon', from:14,   to:17.5},
+  {key:'dinner',    label:'Dinner',    from:17.5, to:23},
+  {key:'overnight', label:'Overnight', from:23,   to:28}
+];
+function slotOf(row){
+  if(row.meal_tag){
+    const s = SLOTS.find(s=>s.key===row.meal_tag.toLowerCase()); if(s) return s;
+  }
+  const h = hrs(row.time);
+  return SLOTS.find(s=> h>=s.from && h<s.to) || SLOTS[0];
+}
+
+/* ============================================================
+   ANALYSE
+   ============================================================ */
+function analyse(raw, cfg){
+  const rows = raw.map(r=>({
+    ...r,
+    dt:      toDate(r.date, r.time),
+    h:       hrs(r.time),
+    bg:      num(r.bg_mmol),
+    carbs:   num(r.carbs_g) ?? 0,
+    eaten:   num(r.eaten_g),
+    rec:     num(r.rec_g),
+    iob:     num(r.iob_u) ?? 0,
+    sugg:    num(r.sugg_u),
+    pump:    num(r.pump_u),
+    icr:     num(r.icr),
+    isf:     num(r.isf)
+  })).sort((a,b)=>a.dt-b.dt);
+
+  const meals       = rows.filter(r=>r.type==='bolus' && r.carbs > 0);
+  const corrections = rows.filter(r=>r.type==='bolus' && r.carbs === 0);
+  const lows        = rows.filter(r=>r.type==='low');
+  const rechecks    = rows.filter(r=>r.type==='recheck');
+
+  /* --- rescue carbs: the headline. Never entered into the pump. --- */
+  const rescueTotal = lows.reduce((s,l)=>s + (l.eaten ?? l.rec ?? 0), 0);
+
+  /* --- link each low back to its preceding meal bolus, and to its recheck --- */
+  lows.forEach(l=>{
+    const prior = meals.filter(m=>m.dt < l.dt);
+    l.prev = prior.length ? prior[prior.length-1] : null;
+    l.elapsed = l.prev ? Math.round((l.dt - l.prev.dt)/60000) : null;
+    const rc = rechecks.find(r => r.dt > l.dt && (r.dt - l.dt) < 90*60000);
+    l.recheck = rc || null;
+    l.rcMins  = rc ? Math.round((rc.dt - l.dt)/60000) : null;
+    l.rcRise  = rc && l.bg != null ? +(rc.bg - l.bg).toFixed(1) : null;
+  });
+  meals.forEach(m => m.lowAfter = lows.find(l => l.prev === m) || null);
+
+  /* --- daily: Glooko's carb figure vs the real one --- */
+  const days = {};
+  rows.forEach(r=>{
+    const k = dayKey(r.dt);
+    days[k] ??= {date:r.dt, pumpCarbs:0, rescue:0, meals:0, corrections:0, lows:0};
+    const d = days[k];
+    if(r.type==='bolus' && r.carbs>0){ d.pumpCarbs += r.carbs; d.meals++; }
+    if(r.type==='bolus' && r.carbs===0) d.corrections++;
+    if(r.type==='low'){ d.rescue += (r.eaten ?? r.rec ?? 0); d.lows++; }
+  });
+  const daily = Object.values(days).sort((a,b)=>a.date-b.date);
+
+  /* --- block aggregates: the honest way to use the calc-vs-pump delta --- */
+  const blocks = SLOTS.map(s=>{
+    const ms = meals.filter(m=>slotOf(m).key===s.key);
+    if(!ms.length) return null;
+    const withLow = ms.filter(m=>m.lowAfter && m.lowAfter.elapsed <= 180).length;
+    const carbSet = [...new Set(ms.map(m=>m.carbs))];
+    return {
+      label: s.label, n: ms.length,
+      carbs: carbSet.length===1 ? carbSet[0]+' g' : Math.min(...carbSet)+'–'+Math.max(...carbSet)+' g',
+      bg:   mean(ms.map(m=>m.bg)),
+      calc: mean(ms.map(m=>m.sugg ?? 0)),
+      pump: mean(ms.map(m=>m.pump ?? 0)),
+      lows: withLow
+    };
+  }).filter(Boolean);
+  blocks.forEach(b => b.delta = b.pump - b.calc);
+
+  /* --- exception: runs of correction-only boluses (stacking) --- */
+  const stacks = [];
+  let run = [];
+  corrections.forEach(c=>{
+    if(run.length && (c.dt - run[run.length-1].dt) <= 90*60000) run.push(c);
+    else { if(run.length>=3) stacks.push(run); run=[c]; }
+  });
+  if(run.length>=3) stacks.push(run);
+
+  /* --- data integrity: does each row's stored ICR/CF match the schedule now in force? --- */
+  const drift = rows.filter(r=>{
+    if(r.icr==null && r.isf==null) return false;
+    const wantIcr = schedAt(cfg.icr, r.h), wantCf = schedAt(cfg.cf, r.h);
+    return (r.icr!=null && r.icr!==wantIcr) || (r.isf!=null && r.isf!==wantCf);
+  });
+
+  /* --- low clustering window --- */
+  const lowHrs = lows.map(l=>l.h);
+  const win = lows.length ? {from: Math.min(...lowHrs), to: Math.max(...lowHrs)} : null;
+
+  return {rows, meals, corrections, lows, rechecks, rescueTotal, daily, blocks, stacks, drift, win};
+}
+
+/* ============================================================
+   24-HOUR STRIP — the one thing Glooko structurally cannot draw
+   ============================================================ */
+function strip(a, cfg){
+  const X = h => 96 + h*30, W = 836;
+  const bMin = Math.min(...cfg.basal.map(s=>s.v)) - 0.2;
+  const bMax = Math.max(...cfg.basal.map(s=>s.v)) + 0.2;
+  const bY = v => 116 - ((v - bMin)/(bMax - bMin))*40;
+
+  const band = (sched, y, fmt) => {
+    let s = `<rect x="96" y="${y}" width="720" height="17" fill="#F1F4F7" stroke="#C9D1D6"/>`;
+    sched.forEach((seg,i)=>{
+      const x0 = X(seg.t), x1 = i+1 < sched.length ? X(sched[i+1].t) : X(24);
+      if(i) s += `<line x1="${x0}" y1="${y}" x2="${x0}" y2="${y+17}" stroke="#1F3864"/>`;
+      if(x1-x0 > 22)
+        s += `<text x="${(x0+x1)/2}" y="${y+13}" font-size="9.5" fill="#33454F" text-anchor="middle">${fmt(seg.v)}</text>`;
+    });
+    return s;
+  };
+
+  /* basal step line */
+  let pts = [];
+  cfg.basal.forEach((seg,i)=>{
+    const x0 = X(seg.t), x1 = i+1 < cfg.basal.length ? X(cfg.basal[i+1].t) : X(24);
+    pts.push(`${x0},${bY(seg.v)}`, `${x1},${bY(seg.v)}`);
+  });
+
+  /* shaded low window */
+  let shade = '';
+  if(a.win){
+    const x0 = X(Math.max(0, a.win.from - 0.4)), x1 = X(Math.min(24, a.win.to + 0.4));
+    shade = `<rect x="${x0}" y="26" width="${x1-x0}" height="196" fill="#FBF0F0"/>
+             <text x="${(x0+x1)/2}" y="20" text-anchor="middle" font-size="9.5" fill="#E05A5A"
+                   font-weight="700" letter-spacing=".5">EVERY LOW LANDS HERE</text>`;
+  }
+
+  const maxU = Math.max(...a.meals.map(m=>m.pump ?? 0), 1);
+  const mealBars = a.meals.map(m=>{
+    const hgt = (m.pump/maxU)*38;
+    return `<rect x="${X(m.h)-2.5}" y="${174-hgt}" width="5" height="${hgt}" fill="#B9C6D6"/>`;
+  }).join('');
+  const corrBars = a.corrections.map(c=>{
+    const hgt = Math.max(2,(c.pump/maxU)*38);
+    return `<rect x="${X(c.h)-2}" y="${174-hgt}" width="4" height="${hgt}" fill="#E8A33D"/>`;
+  }).join('');
+  const corrLbl = a.stacks.length
+    ? `<text x="${X(mean(a.stacks[0].map(c=>c.h)))}" y="162" font-size="9" fill="#E8A33D"
+             font-weight="700" text-anchor="middle">${a.stacks[0].length} × correction</text>` : '';
+
+  const lowDots = a.lows.map(l=>{
+    const g = l.eaten ?? l.rec ?? 0, r = 5 + Math.min(g,15)/5;
+    const severe = l.bg != null && l.bg < 3.9;
+    return `<circle cx="${X(l.h)}" cy="199" r="${r}" fill="${severe?'#C43C3C':'#E05A5A'}"/>
+            <text x="${X(l.h)}" y="219" font-size="9" fill="#E05A5A" text-anchor="middle" font-weight="700">${g} g</text>
+            <text x="${X(l.h)}" y="188" font-size="8.5" fill="${severe?'#C43C3C':'#6B7B84'}"
+                  text-anchor="middle" ${severe?'font-weight="700"':''}>${l.bg}</text>`;
+  }).join('');
+
+  const grid = [0,3,6,9,12,15,18,21,24].map(h=>
+    `<line x1="${X(h)}" y1="26" x2="${X(h)}" y2="222" stroke="#E4E9EC"/>
+     <text x="${X(h)}" y="20" font-size="9.5" fill="#6B7B84" text-anchor="middle">${
+       h===0?'12a':h===12?'12p':h===24?'12a':h<12?h+'a':(h-12)+'p'}</text>`).join('');
+
+  return `
+  <div class="chartwrap">
+  <svg viewBox="0 0 ${W} 232" width="100%" role="img"
+       aria-label="24-hour strip: low treatments plotted against ratio, correction and basal blocks">
+    ${shade}${grid}
+    <text x="90" y="43" text-anchor="end" font-size="9.5" fill="#1F3864" font-weight="700">ICR g/U</text>
+    ${band(cfg.icr, 30, v=>v)}
+    <text x="90" y="69" text-anchor="end" font-size="9.5" fill="#1F3864" font-weight="700">CF mmol/U</text>
+    ${band(cfg.cf, 56, v=>v)}
+    <text x="90" y="99" text-anchor="end" font-size="9.5" fill="#1F3864" font-weight="700">Basal U/hr</text>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="#3A5285" stroke-width="1.8"/>
+    ${cfg.basal.map((s,i)=>{
+        const x0=X(s.t), x1 = i+1<cfg.basal.length ? X(cfg.basal[i+1].t) : X(24);
+        return x1-x0 > 40
+          ? `<text x="${(x0+x1)/2}" y="${bY(s.v)-5}" font-size="9" fill="#6B7B84" text-anchor="middle">${s.v}</text>` : '';
+      }).join('')}
+    <line x1="96" y1="126" x2="816" y2="126" stroke="#E4E9EC"/>
+    <text x="90" y="172" text-anchor="end" font-size="9.5" fill="#1F3864" font-weight="700">Boluses U</text>
+    <line x1="96" y1="174" x2="816" y2="174" stroke="#C9D1D6"/>
+    ${mealBars}${corrBars}${corrLbl}
+    <text x="90" y="203" text-anchor="end" font-size="9.5" fill="#E05A5A" font-weight="700">Low treat.</text>
+    <line x1="96" y1="199" x2="816" y2="199" stroke="#E4E9EC" stroke-dasharray="2 2"/>
+    ${lowDots}
+  </svg>
+  <div class="legend">
+    <span><i style="background:#B9C6D6"></i>Meal bolus (height = units)</span>
+    <span><i style="background:#E8A33D"></i>Correction bolus</span>
+    <span><i style="background:#E05A5A;border-radius:50%"></i>Low treatment (grams below, BG above)</span>
+    <span><i style="background:#FBF0F0;border:1px solid #E05A5A"></i>Low-treatment window</span>
+  </div></div>`;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderCompanion(raw, cfg){
+  const a = analyse(raw, cfg);
+  const d0 = a.rows[0].dt, d1 = a.rows[a.rows.length-1].dt;
+  const nDays = a.daily.length;
+
+  const winTxt = a.win
+    ? `${String(Math.floor(a.win.from)).padStart(2,'0')}:${String(Math.round(a.win.from%1*60)).padStart(2,'0')}`
+      + `–${String(Math.floor(a.win.to)).padStart(2,'0')}:${String(Math.round(a.win.to%1*60)).padStart(2,'0')}`
+    : '—';
+
+  /* -- 1. CONTEXT -- */
+  let h = `
+  <div class="mast">
+    <div>
+      <h2>Carb_Calc — Companion Page</h2>
+      <p class="sub">Self-logged food, dose context and low treatments · read alongside the Glooko report</p>
+    </div>
+    <div class="who"><b>${esc(cfg.name)}</b><br>${esc(cfg.sub)}<br>
+      Diary: ${fmtDay(d0)} – ${fmtDay(d1)} (${nDays} days)</div>
+  </div>
+
+  <div class="callout">
+    <b>What this page adds.</b> Glooko already shows CGM, time in range and delivered insulin — none of it is
+    repeated here. This page carries only what the pump cannot record: <b>rescue carbohydrate</b>, <b>what the
+    food actually was</b>, and <b>why a dose or treatment happened</b>. Record and comparison only, not a dosing device.
+  </div>
+  <div class="callout warn">
+    <b>Read the two periods separately.</b> Glooko's glucose statistics cover ${esc(cfg.cgm)} and are sound.
+    Its insulin, bolus and carb statistics only describe ${esc(cfg.ins)} — Glooko itself flags the rest of the
+    month as having no insulin data. Do not read the month's carb or bolus averages as typical.
+  </div>`;
+
+  /* -- 2. HEADLINE -- */
+  const worst = a.lows.reduce((m,l)=> (l.bg!=null && (!m || l.bg < m.bg)) ? l : m, null);
+  h += `
+  <h3>Headline <span>${nDays} days · ${a.meals.length} meal boluses · ${a.lows.length} low treatments</span></h3>
+  <div class="strip">
+    <div class="stat"><div class="n warn">${a.rescueTotal} g</div><div class="l">Rescue carbs — invisible to Glooko</div></div>
+    <div class="stat"><div class="n warn">${a.lows.length} / ${a.lows.length}</div><div class="l">Lows falling ${winTxt}</div></div>
+    <div class="stat"><div class="n">${worst ? worst.bg : '—'}</div><div class="l">Lowest treated BG (mmol/L)</div></div>
+    <div class="stat"><div class="n">${a.stacks.length ? a.stacks[0].length : 0}</div><div class="l">Corrections in one stacked run</div></div>
+  </div>`;
+
+  /* the carb discrepancy — the fact everyone else missed */
+  const disc = a.daily.filter(d=>d.rescue>0);
+  if(disc.length){
+    h += `<p class="note"><b>Read this first:</b> rescue carbohydrate is eaten but never entered into the pump,
+      so it is absent from Glooko's carb totals and bolus counts. Glooko reads
+      ${disc.map(d=>`<b>${d.pumpCarbs} g</b> on ${fmtDay(d.date)}`).join(', ')} —
+      true intake was ${disc.map(d=>`<b>${d.pumpCarbs + d.rescue} g</b>`).join(', ')} respectively.
+      The CGM traces on those days look settled <em>because</em> these treatments were taken.</p>`;
+  }
+
+  /* -- 3. PATTERNS: the strip + block table -- */
+  h += `<h3>When the lows happen <span>plotted against the ratio, correction and basal blocks in force</span></h3>`;
+  h += strip(a, cfg);
+
+  h += `
+  <h3>Pattern by time block <span>repeatable meals make this a near-controlled comparison</span></h3>
+  <table><thead><tr>
+    <th>Block</th><th class="num">Entries</th><th class="num">Carbs</th><th class="num">Mean pre-meal BG</th>
+    <th class="num">Mean pump U</th><th class="num">Mean Carb_Calc U</th><th class="num">Pump − Calc</th>
+    <th class="num">Low within 3 h</th></tr></thead><tbody>` +
+    a.blocks.map(b=>{
+      const hot = b.lows === b.n && b.n > 1;
+      return `<tr class="${hot?'hit':''}">
+        <td><b>${b.label}</b></td><td class="num">${b.n}</td><td class="num">${b.carbs}</td>
+        <td class="num">${b.bg.toFixed(1)}</td><td class="num">${b.pump.toFixed(2)}</td>
+        <td class="num quiet">${b.calc.toFixed(2)}</td><td class="num quiet">${sgn(b.delta)}</td>
+        <td class="num ${hot?'flag':''}">${b.lows} / ${b.n}</td></tr>`;
+    }).join('') + `</tbody></table>
+  <p class="note"><b>Association is a prompt, not a cause.</b> A low following a block does not prove the meal dose
+  drove it — insulin timing, IOB, activity and the block settings themselves all sit in the frame.
+  <b>Carb_Calc U</b> is greyed deliberately: it is a cross-check, not a competing recommendation. The pump's dose
+  is what was delivered.</p>`;
+
+  /* -- 3b. MEALS: food, first-bite timing, context — none of it pump-visible -- */
+  const hasMealData = a.rows.some(r => r.meal || r.bolus_timing || (r.context && r.context.trim()));
+  if(hasMealData){
+    const tm = a.meals.filter(m=>m.bolus_timing);
+    const preM = tm.filter(m=>m.bolus_timing==='before');
+    const leads = preM.map(m=>parseInt(m.timing_min)).filter(n=>!isNaN(n)).sort((x,y)=>x-y);
+    const medLead = leads.length ? leads[Math.floor(leads.length/2)] : null;
+    h += `
+  <h3>Meals — what was eaten and when the dose went in
+    <span>${tm.length ? preM.length+' of '+tm.length+' pre-bolused'+(medLead!=null?' · median lead '+medLead+' min':'') : 'timing not recorded'}</span></h3>
+  <table><thead><tr>
+    <th>Date</th><th>Time</th><th>Meal</th><th class="num">Carbs g</th>
+    <th>Bolus timing</th><th>Context</th><th>Note</th></tr></thead><tbody>` +
+    a.meals.map(m=>`<tr>
+      <td>${fmtDay(m.dt)}</td><td>${esc(m.time)}</td><td><b>${fmtMeal(m.meal)}</b></td>
+      <td class="num">${m.carbs}</td><td>${fmtTiming(m.bolus_timing, m.timing_min)}</td>
+      <td>${esc(fmtCtx(m.context)||'—')}</td><td>${esc(m.note||'—')}</td></tr>`).join('') +
+    `</tbody></table>
+  <p class="note">Bolus timing is relative to first bite — a distinction the pump cannot record; Glooko sees only the
+  bolus timestamp. Insulin columns are deliberately absent here: doses live in the block table above.</p>`;
+  }
+
+  /* -- 4. EXCEPTIONS: lows, then stacks -- */
+  h += `
+  <h3>Low treatments <span>every event, with the bolus that preceded it and the recheck that followed</span></h3>
+  <table><thead><tr>
+    <th>Date</th><th>Time</th><th class="num">BG</th><th>Trend</th><th class="num">Rec g</th>
+    <th class="num">Eaten g</th><th class="num">IOB U</th><th>Preceding bolus</th><th class="num">Elapsed</th>
+    <th class="num">Recheck</th><th>Context</th><th>Note</th></tr></thead><tbody>` +
+    a.lows.map(l=>{
+      const weak = l.rcRise != null && l.rcRise < 1.0;
+      return `<tr>
+        <td>${fmtDay(l.dt)}</td><td>${esc(l.time)}</td>
+        <td class="num"><span class="dot"></span>${l.bg < 3.9 ? '<b>'+l.bg+'</b>' : l.bg}</td>
+        <td>${esc(l.trend||'')}</td><td class="num">${l.rec ?? '—'}</td><td class="num">${l.eaten ?? '—'}</td>
+        <td class="num">${l.iob.toFixed(2)}</td>
+        <td class="quiet">${l.prev ? esc(l.prev.time)+' · '+l.prev.carbs+' g · '+l.prev.pump.toFixed(2)+' U' : '—'}</td>
+        <td class="num quiet">${l.elapsed != null ? l.elapsed+' min' : '—'}</td>
+        <td class="num ${weak?'flag':''}">${l.recheck ? l.recheck.bg+' <span class="quiet">(+'+l.rcMins+' m)</span>' : '—'}</td>
+        <td>${esc(fmtCtx(l.context)||'—')}</td>
+        <td>${esc(l.note||'—')}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+
+  const weakN = a.lows.filter(l=>l.rcRise != null && l.rcRise < 1.0).length;
+  const preN  = a.lows.filter(l=>l.bg != null && l.bg >= 3.9).length;
+  h += `<p class="note">
+    ${weakN ? `<b>${weakN} of ${a.lows.length} rechecks barely moved</b> (under 1.0 mmol/L rise) — worth a
+    conversation about treatment size against the IOB on board. ` : ''}
+    ${preN ? `<b>${preN} of ${a.lows.length} treatments were taken at or above 3.9 mmol/L</b>, i.e. pre-emptive
+    top-ups rather than confirmed hypoglycaemia. The log does not yet distinguish the two — it should.` : ''}
+  </p>`;
+
+  a.stacks.forEach(st=>{
+    const first = st[0], last = st[st.length-1];
+    const mins  = Math.round((last.dt - first.dt)/60000);
+    const total = st.reduce((s,c)=>s + (c.pump||0), 0);
+    h += `
+    <h3>Exception — stacked corrections <span>${fmtDay(first.dt)}, ${first.time}–${last.time}</span></h3>
+    <table><thead><tr><th>Time</th><th class="num">BG</th><th class="num">IOB U</th>
+      <th class="num">Pump U</th><th>Note</th></tr></thead><tbody>` +
+      st.map(c=>`<tr><td>${esc(c.time)}</td><td class="num">${c.bg}</td>
+        <td class="num">${c.iob.toFixed(2)}</td><td class="num">${c.pump.toFixed(2)}</td>
+        <td>${esc(c.note||'—')}</td></tr>`).join('') + `</tbody></table>
+    <p class="note"><b>${st.length} corrections in ${mins} minutes</b> totalling ${total.toFixed(2)} U, while glucose
+    <b>rose</b> from ${first.bg} to ${last.bg} mmol/L and IOB climbed to ${Math.max(...st.map(c=>c.iob)).toFixed(2)} U.
+    Glooko records this as a run of boluses and a high correction rate with no explanation attached. The context —
+    ${esc(st.find(c=>c.note)?.note || 'see note')} — is the part only this log holds.</p>`;
+  });
+
+  /* -- 5. DISCUSSION -- */
+  const hotBlock = a.blocks.find(b=>b.lows===b.n && b.n>1);
+  const basalDrop = cfg.basal.reduce((lo,s)=> s.v < lo.v ? s : lo, cfg.basal[0]);
+  h += `
+  <h3>For the session</h3>
+  <ul class="q">
+    ${hotBlock ? `<li>Every low in this diary follows the <b>${hotBlock.label.toLowerCase()}</b> bolus. Is that the
+      ratio block, the basal step down to ${basalDrop.v} U/hr, or the meal itself?</li>` : ''}
+    <li>How should a pre-emptive top-up at 4.4–5.3 mmol/L with insulin on board be distinguished from confirmed
+      hypoglycaemia, in the log and in practice?</li>
+    <li>Rescue carbohydrate is never entered into the pump, so the AID system never sees it. Should it be?</li>
+    ${a.stacks.length ? `<li>What is the right correction protocol in the first two hours on a new pod, when
+      glucose is rising on rising IOB?</li>` : ''}
+    ${(()=>{const cl=a.lows.filter(l=>l.context&&l.context.trim());if(!cl.length)return '';
+      const tally={};cl.forEach(l=>l.context.split(';').map(s=>s.trim()).filter(Boolean).forEach(c=>tally[c]=(tally[c]||0)+1));
+      const tx=Object.entries(tally).map(([k,v])=>k+' ×'+v).join(', ');
+      return `<li>${cl.length} of ${a.lows.length} low treatments carry context flags (${tx}) — do these change the
+      treatment-size conversation, or the block settings themselves?</li>`;})()}
+  </ul>`;
+
+  /* -- data integrity -- */
+  if(a.drift.length){
+    const dd = [...new Set(a.drift.map(r=>fmtDay(r.dt)))];
+    h += `<div class="callout warn" style="margin-top:18px">
+      <b>Data-integrity flag (for Brian, not for the educator).</b> ${a.drift.length} row${a.drift.length>1?'s':''}
+      on ${dd.join(', ')} carry an ICR or CF value that does not match the schedule currently in force at that
+      time of day. These rows were computed under an earlier schedule. Their Carb_Calc suggestions are not
+      comparable to the later rows — stamp a schedule version on every row before this goes out.</div>`;
+  }
+
+  h += `<footer>
+    <span>Carb_Calc · generated ${new Date().toLocaleDateString('en-AU')} · self-logged, record and comparison only, not a dosing device</span>
+    <span>Companion to Glooko ${esc(cfg.cgm)}</span>
+  </footer>`;
+
+  return h;
+}
+
+/* ---------- wiring ---------- */
+function build(){
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try{
+    const cfg = {
+      name:  document.getElementById('cfgName').value,
+      sub:   document.getElementById('cfgSub').value,
+      cgm:   document.getElementById('cfgCgm').value,
+      ins:   document.getElementById('cfgIns').value,
+      icr:   parseSched(document.getElementById('cfgIcr').value),
+      cf:    parseSched(document.getElementById('cfgCf').value),
+      basal: parseSched(document.getElementById('cfgBasal').value),
+      target: parseFloat(document.getElementById('cfgTgt').value)
+    };
+    const rows = parseCSV(document.getElementById('csv').value);
+    if(!rows.length) throw new Error('No rows found.');
+    document.getElementById('report').innerHTML = renderCompanion(rows, cfg);
+  }catch(e){
+    err.textContent = 'Could not build report: ' + e.message;
+  }
+}
+
+const SAMPLE = `date,time,type,bg_mmol,trend,carbs_g,rec_g,eaten_g,iob_u,iob_source,sugg_u,pump_u,meal,bolus_timing,timing_min,context,block,icr,isf,target,note
+"Fri, 10 July 2026",15:14,bolus,7.9,,33,,,1.10,pump,4.25,3.00,afternoon,with,,,15:00,7,2.8,6.1,STD 3pm
+"Fri, 10 July 2026",16:38,low,4.6,→,,10,14,1.70,,,,,,,,15:00,7,2.8,6.1,
+"Fri, 10 July 2026",17:06,recheck,6.2,,,,,,,,,,,,,,,,,
+"Fri, 10 July 2026",19:21,bolus,5.9,,45,,,0.00,pump,4.45,5.60,dinner,with,,,19:00,10,3.2,6.1,"Rice, roast lamb, steamed veg"
+"Sat, 11 July 2026",08:16,bolus,6.4,,55,,,0.00,pump,7.00,7.00,breakfast,before,15,,04:00,8,2.5,6.1,STD AM
+"Sat, 11 July 2026",12:48,bolus,6.7,,33,,,0.00,pump,4.35,4.35,lunch,before,10,,04:00,8,2.5,6.1,STD lunch
+"Sat, 11 July 2026",15:11,bolus,7.2,,33,,,1.00,pump,3.90,3.05,afternoon,with,,,ICR@15:00,7,2.8,6.1,STD lunch
+"Sat, 11 July 2026",17:43,low,4.4,→,,7,7,0.55,,,,,,,,ICR@15:00,7,2.8,6.1,Jubes
+"Sat, 11 July 2026",18:11,recheck,4.7,,,,,,,,,,,,,,,,,
+"Sat, 11 July 2026",19:23,bolus,5.4,,45,,,0.00,pump,4.30,5.20,dinner,with,,,ICR@19:00,10,3.2,6.1,Rice lamb steamed veg
+"Sun, 12 July 2026",08:55,bolus,6.1,,55,,,0.00,pump,6.90,6.85,breakfast,before,15,,ICR@02:00,8,2.5,6.1,STD AM
+"Sun, 12 July 2026",12:27,bolus,6.7,,33,,,0.00,pump,4.35,3.90,lunch,with,,,ICR@11:30,8,2.5,6.1,Lunch
+"Sun, 12 July 2026",13:46,low,5.3,→,,13,13,2.70,,,,,,,,ICR@11:30,8,2.8,6.1,
+"Sun, 12 July 2026",14:22,recheck,5.4,,,,,,,,,,,,,,,,,
+"Sun, 12 July 2026",14:55,bolus,5.8,,33,,,0.80,pump,2.40,3.15,afternoon,after,5,,ICR@14:00,10,2.8,6.1,Lunch
+"Sun, 12 July 2026",17:03,low,3.6,→,,13,14,1.00,,,,,,,activity,ICR@14:00,10,3.2,6.1,
+"Sun, 12 July 2026",17:41,recheck,6.7,,,,,,,,,,,,,,,,,
+"Sun, 12 July 2026",19:39,bolus,6.4,,45,,,0.10,pump,5.65,5.70,dinner,with,,,ICR@19:00,8,2.8,6.1,Rice lamb veg
+"Sun, 12 July 2026",21:13,bolus,12.6,,0,,,1.90,pump,0.00,0.90,,,,,ICR@19:00,8,1.7,6.1,
+"Sun, 12 July 2026",21:35,bolus,13.2,,0,,,3.20,pump,0.00,0.95,,,,,ICR@19:00,8,1.7,6.1,
+"Sun, 12 July 2026",21:52,bolus,14.1,,0,,,3.70,pump,0.00,1.00,,,,,ICR@19:00,8,1.7,6.1,
+"Sun, 12 July 2026",22:04,bolus,14.1,,0,,,4.25,pump,0.00,0.45,,,,,ICR@19:00,8,1.7,6.1,
+"Sun, 12 July 2026",22:07,bolus,14.1,,0,,,4.65,pump,0.00,0.00,,,,unusual,ICR@19:00,8,1.7,6.1,Repeated bolus post pod change.
+"Sun, 12 July 2026",22:19,bolus,14.9,,0,,,4.06,pump,1.10,1.15,,,,,ICR@19:00,8,1.7,6.1,
+"Mon, 13 July 2026",08:45,bolus,5.8,,55,,,0.00,pump,6.75,6.30,breakfast,before,15,,ICR@02:00,8,2.5,6.1,STD AM
+"Mon, 13 July 2026",12:14,bolus,6.4,,33,,,0.00,pump,4.25,3.85,lunch,with,,,ICR@11:30,8,2.5,6.1,STD Lunch`;
+
+document.getElementById('csv').value = SAMPLE;
+build();
+</script>
+</body>
+</html>
