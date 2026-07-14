@@ -59,6 +59,7 @@ input,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
   color:var(--text);font-family:var(--mono);font-size:22px;padding:10px 12px;font-variant-numeric:tabular-nums}
 textarea{font-family:var(--sans);font-size:15px;min-height:44px;resize:vertical}
 input::placeholder,textarea::placeholder{color:#9FB4C0}
+input::placeholder{font-size:14px;letter-spacing:0}
 .unit{font-size:11px;color:var(--mut);font-family:var(--sans);text-transform:none;letter-spacing:0;margin-left:4px}
 .btn{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--sans)}
 .btn-go{background:var(--ok);color:#fff;margin-top:4px}
@@ -244,7 +245,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
     <div class="field">
       <label>Context <span class="unit">tap any that apply</span></label>
       <div class="chips" id="ctxTreat">
-        <button data-c="illness">Illness</button><button data-c="stress">Stress</button>
+        <button data-c="illness">Illness</button><button data-c="resistance">Resistant</button>
         <button data-c="activity">Activity</button><button data-c="unusual">Unusual day</button>
         <button data-c="suspended">Pump suspended</button>
       </div>
@@ -315,7 +316,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
     <div class="field">
       <label>Context <span class="unit">tap any that apply</span></label>
       <div class="chips" id="ctxBolus">
-        <button data-c="illness">Illness</button><button data-c="stress">Stress</button>
+        <button data-c="illness">Illness</button><button data-c="resistance">Resistant</button>
         <button data-c="activity">Activity</button><button data-c="unusual">Unusual day</button>
       </div>
     </div>
@@ -353,7 +354,6 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
         <button data-e="illness">Illness</button>
         <button data-e="resistance">Resistance</button>
         <button data-e="activity">Activity</button>
-        <button data-e="alcohol">Alcohol</button>
         <button data-e="pod_change">Pod change</button>
         <button data-e="sensor_change">Sensor change</button>
         <button data-e="other">Other</button>
