@@ -206,6 +206,12 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   </div>
 </div>
 
+<!-- PRE-BOLUS EAT TIMER -->
+<div class="recheck no-print" id="eatTimer">
+  <div id="ettext"></div>
+  <div class="rrow"><button id="etDone">Done — eating now</button></div>
+</div>
+
 <div class="tabs no-print">
   <button class="tab on" data-p="treat">Treat low</button>
   <button class="tab" data-p="bolus">Bolus</button>
@@ -239,6 +245,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
       <div class="chips" id="ctxTreat">
         <button data-c="illness">Illness</button><button data-c="stress">Stress</button>
         <button data-c="activity">Activity</button><button data-c="unusual">Unusual day</button>
+        <button data-c="suspended">Pump suspended</button>
       </div>
     </div>
     <div class="field">
@@ -342,9 +349,24 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   <div class="loghead">
     <h2>Diary</h2>
     <div class="actions">
+      <button id="btnNote">+ Note</button>
       <button id="btnReport">Educator report</button>
       <button id="btnPrint">Print / PDF</button>
       <button id="btnCsv">CSV</button>
+    </div>
+  </div>
+  <div class="card" id="noteCard" style="display:none">
+    <div class="field">
+      <label for="n_text">Note <span class="unit">free text — trend, situation, anything worth flagging</span></label>
+      <textarea id="n_text" placeholder="e.g. drifting high since 2pm, big walk this morning"></textarea>
+    </div>
+    <div class="field">
+      <label for="n_when">Time <span class="unit">defaults to now — set earlier to flag retrospectively</span></label>
+      <input id="n_when" type="datetime-local" style="font-size:16px">
+    </div>
+    <div class="savebar">
+      <button class="btn btn-ghost" id="btnNoteCancel" style="flex:0 0 auto">Cancel</button>
+      <button class="btn btn-go" id="btnNoteSave" style="margin-top:0">Save note</button>
     </div>
   </div>
   <div id="log"></div>
@@ -686,7 +708,7 @@ function runTreat(){
 }
 function renderTreat(r,s){
   const st=$('t_state');
-  if(r.low){st.textContent='LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym;st.className='state low'}
+  if(r.low){st.textContent=(r.bg<3.9?'CONFIRMED LOW — ':'LOW (PRE-EMPTIVE RANGE) — ')+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym;st.className='state low'}
   else{st.textContent='NOT LOW — '+fmt(r.bg,1)+' mmol/L '+TRENDS[r.trend].sym+' (pre-emptive)';st.className='state ok'}
   const li=(k,sub,v,neg)=>`<div class="li"><span class="k">${k}${sub?`<small>${sub}</small>`:''}</span><span${neg?' class="neg"':''}>${v}</span></div>`;
   let h='';
@@ -702,6 +724,7 @@ function renderTreat(r,s){
   const msg=$('t_msg');
   if(r.grams===0){msg.style.display='block';msg.textContent='No carbs suggested on these numbers — previous treatment or trend already has it covered. Recheck rather than eat.'}
   else if(!r.low){msg.style.display='block';msg.textContent='BG not below target — this is pre-emptive cover for active insulin only.'}
+  else if(r.bg>=4.4&&(r.trend==='f'||r.trend==='u')){msg.style.display='block';msg.textContent='Educator guidance: flat at 4.4–5.3 with no exercise planned and no predicted low usually warrants watching, not treating — check how long the pump has been suspended first. Suggestion shown for the record.'}
   else msg.style.display='none';
   $('t_eaten').value=r.grams;
   $('t_result').classList.add('show');
@@ -709,8 +732,10 @@ function renderTreat(r,s){
 }
 function saveTreat(){
   if(!lastTreat)return;
+  unlockAudio();
   const e={type:'low',ts:lastTreat.ts,bg:lastTreat.bg,iob:lastTreat.iob,trend:lastTreat.trend,
     recGrams:lastTreat.grams,eaten:parseFloat($('t_eaten').value)||0,note:lastTreat.note,
+    lowClass:lastTreat.bg<3.9?'confirmed':'preemptive',
     context:lastTreat.context,
     block:lastTreat.block,icr:lastTreat.icrU,isf:lastTreat.isfU,target:lastTreat.targetU};
   const log=store.log;log.push(e);store.log=log;
@@ -724,6 +749,38 @@ function saveTreat(){
 
 /* ---------- recheck ---------- */
 function pending(){try{return JSON.parse(localStorage.getItem('bc_pending'))}catch(e){return null}}
+/* --- alerts: SW notifications (constructor form fails on iOS/Android Chrome) + audible chime --- */
+let audioCtx=null;
+function unlockAudio(){
+  try{
+    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')audioCtx.resume();
+  }catch(e){}
+}
+function chime(){
+  try{
+    if(!audioCtx)return;
+    const t0=audioCtx.currentTime;
+    for(let i=0;i<4;i++){
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.type='sine';o.frequency.value=i%2?660:880;
+      g.gain.setValueAtTime(0.0001,t0+i*0.35);
+      g.gain.exponentialRampToValueAtTime(0.4,t0+i*0.35+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+i*0.35+0.3);
+      o.connect(g);g.connect(audioCtx.destination);
+      o.start(t0+i*0.35);o.stop(t0+i*0.35+0.32);
+    }
+  }catch(e){}
+  try{if(navigator.vibrate)navigator.vibrate([250,120,250,120,400])}catch(e){}
+}
+function notify(body){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.ready
+      .then(reg=>reg.showNotification('Carb_Calc',{body,tag:'carbcalc',vibrate:[250,120,250],renotify:true}))
+      .catch(()=>{try{new Notification('Carb_Calc',{body})}catch(e){}});
+  }else{try{new Notification('Carb_Calc',{body})}catch(e){}}
+}
 let notified=false;
 function tickRecheck(){
   const p=pending();
@@ -748,6 +805,7 @@ function tickRecheck(){
   }
 }
 function saveRecheck(){
+  unlockAudio();
   const p=pending();if(!p)return;
   const bg=parseFloat($('rcbg').value);
   if(isNaN(bg)||bg<1||bg>35){alert('Enter a BG between 1 and 35 mmol/L.');return}
@@ -759,6 +817,35 @@ function saveRecheck(){
   tickRecheck();
 }
 setInterval(tickRecheck,1000);
+
+/* ---------- pre-bolus eat timer ---------- */
+function pendingEat(){try{return JSON.parse(localStorage.getItem('bc_pending_eat'))}catch(e){return null}}
+let eatNotified=false;
+function tickEat(){
+  const p=pendingEat();
+  const el=$('eatTimer');
+  if(!p){el.classList.remove('show');return}
+  if(Date.now()-p.due>30*60000){localStorage.removeItem('bc_pending_eat');el.classList.remove('show');return}
+  el.classList.add('show');
+  const left=p.due-Date.now();
+  if(left>0){
+    el.classList.remove('due');
+    const m=Math.floor(left/60000),sec=Math.floor((left%60000)/1000);
+    $('ettext').innerHTML='Pre-bolus logged — eat in <span class="cd">'+m+':'+String(sec).padStart(2,'0')+'</span>';
+    eatNotified=false;
+  }else{
+    el.classList.add('due');
+    $('ettext').innerHTML='<strong>Time to eat</strong> — pre-bolus lead time is up.';
+    if(!eatNotified){
+      notify('Time to eat — pre-bolus lead time is up.');
+      chime();
+      eatNotified=true;
+    }
+  }
+}
+$('etDone').addEventListener('click',()=>{localStorage.removeItem('bc_pending_eat');tickEat()});
+setInterval(tickEat,1000);
+tickEat();
 
 /* ---------- bolus UI ---------- */
 let lastResult=null;
@@ -817,6 +904,11 @@ function renderResult(r,s){
 }
 function saveEntry(){
   if(!lastResult)return;
+  unlockAudio();
+  if(lastResult.timing==='before'&&lastResult.timingMins>0){
+    localStorage.setItem('bc_pending_eat',JSON.stringify({due:Date.now()+lastResult.timingMins*60000}));
+    tickEat();
+  }
   const d=parseFloat($('delivered').value);
   const e={type:'bolus',ts:lastResult.ts,bg:lastResult.bg,carbs:lastResult.carbs,iob:lastResult.iob,
     iobSource:lastResult.iobSource,cob:lastResult.cob,carbBolus:lastResult.carbBolus,
@@ -859,7 +951,7 @@ function renderStats(){
   const pre=meals.filter(e=>e.timing==='before').length;
   h+=stat(meals.length?Math.round(pre/meals.length*100)+'%':'—','pre-bolused');
   const totalCarbs=meals.reduce((a,e)=>a+(e.carbs||0),0)+lows.reduce((a,e)=>a+(e.eaten||0),0);
-  const activeDays=new Set(log.filter(e=>e.type!=='recheck').map(e=>new Date(e.ts).toDateString())).size;
+  const activeDays=new Set(log.filter(e=>e.type==='bolus'||e.type==='low').map(e=>new Date(e.ts).toDateString())).size;
   h+=stat(activeDays?Math.round(totalCarbs/activeDays)+' g':'—','avg carbs / logged day');
   h+=`<div class="stat tod"><div class="l">Lows by time of day</div><div class="bars">${
     buckets.map(b=>`<div class="bar" style="height:${Math.round(b/mx*100)}%"></div>`).join('')
@@ -885,6 +977,11 @@ function renderLog(){
         <div class="top"><span><span class="tag">LOW</span> BG <b>${e.bg.toFixed(1)}</b> ${TRENDS[e.trend]?TRENDS[e.trend].sym:''}</span><span class="t">${tstr(e.ts)}</span></div>
         <div class="mid"><span>rec <b>${e.recGrams} g</b></span><span>ate <b>${e.eaten} g</b></span><span>IOB ${e.iob.toFixed(2)}</span></div>
         ${(lctx||e.note)?`<div class="note">${lctx}${(e.note||'').replace(/</g,'&lt;')}</div>`:''}
+        <button class="del" data-i="${idx}">delete</button></div>`;
+    }else if(e.type==='note'){
+      h+=`<div class="entry erecheck">
+        <div class="top"><span><span class="tag">NOTE</span></span><span class="t">${tstr(e.ts)}</span></div>
+        <div class="note">${(e.note||'').replace(/</g,'&lt;')}</div>
         <button class="del" data-i="${idx}">delete</button></div>`;
     }else if(e.type==='recheck'){
       const par=store.log.find(p=>p.ts===e.parent);
@@ -912,14 +1009,14 @@ function renderLog(){
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','low_class','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
-    rows.push([dstr(e.ts),tstr(e.ts),e.type,e.bg.toFixed(1),
+    rows.push([dstr(e.ts),tstr(e.ts),e.type,(e.bg!=null?e.bg.toFixed(1):''),
       e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
       e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
       e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
-      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.note||'']);
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.lowClass||'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
   const a=document.createElement('a');
@@ -940,7 +1037,7 @@ function printDiary(){
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     const ptype=e.type==='bolus'?(e.meal||'meal'):e.type;
     const pctx=(e.context&&e.context.length)?'['+e.context.join('; ')+'] ':'';
-    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${ptype}</td><td>${e.bg.toFixed(1)}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${e.timing?timingText(e.timing,e.timingMins):''}</td><td class="l">${pctx}${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
+    h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${ptype}</td><td>${e.bg!=null?e.bg.toFixed(1):''}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${e.timing?timingText(e.timing,e.timingMins):''}</td><td class="l">${pctx}${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
   });
   h+=`</table><p class="pfoot">* IOB read from pump display. COB/IOB estimates use a linear 30-minute stepped decay (carbs ${s.carbhrs||3} h, insulin ${s.iobhrs||4} h). Low-treatment suggestions: (target − BG) × ICR ÷ ISF × trend + IOB × ICR × weighting − previous treatment absorbing. All figures for comparison and record only.</p>`;
   $('printArea').innerHTML=h;
@@ -962,6 +1059,25 @@ $('btnTreatSave').addEventListener('click',saveTreat);
 $('btnCalc').addEventListener('click',runCalc);
 $('btnSave').addEventListener('click',saveEntry);
 $('rcSave').addEventListener('click',saveRecheck);
+$('btnNote').addEventListener('click',()=>{
+  const c=$('noteCard');
+  const show=c.style.display==='none';
+  c.style.display=show?'block':'none';
+  if(show){
+    const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    $('n_when').value=d.toISOString().slice(0,16);
+    $('n_text').value='';
+  }
+});
+$('btnNoteCancel').addEventListener('click',()=>{$('noteCard').style.display='none'});
+$('btnNoteSave').addEventListener('click',()=>{
+  const text=$('n_text').value.trim();
+  if(!text){alert('Write something first.');return}
+  const when=$('n_when').value?new Date($('n_when').value).getTime():Date.now();
+  const log=store.log;log.push({type:'note',ts:when,note:text});store.log=log;
+  $('noteCard').style.display='none';
+  renderLog();renderStats();
+});
 $('btnCsv').addEventListener('click',exportCsv);
 $('btnReport').addEventListener('click',()=>window.open('report.html','_blank'));
 $('btnPrint').addEventListener('click',printDiary);

@@ -13,13 +13,16 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - IOB weighting: only a settings-defined % of displayed IOB is counted, because AID-displayed IOB includes automated delivery and counting it in full over-treats
 - Trend scaling: falling fast needs more than drifting low (↓↓ ×1.5, ↓ ×1.25, → ×1.0, ↑ ×0.75 — all adjustable)
 - Previous treatments still absorbing are subtracted — no stacking jelly beans
-- Recheck prompt: countdown banner after logging a low (default 15 min), recheck BG linked to the event, so the record shows low → treatment → outcome
+- Recheck prompt: countdown banner after logging a low (default 15 min), recheck BG linked to the event, so the record shows low → treatment → outcome — with an audible chime, vibration and a system notification when due
+- Low classification: every treatment auto-stamped `confirmed` (BG < 3.9) or `preemptive` — because counting judgement-call top-ups together with true hypoglycaemia distorts everything downstream
+- Watch-first reminder: treating flat or rising at 4.4+ shows the educator's guidance (watch, check pump suspension time) alongside the suggestion — the calculation still runs; the reminder is context, not a block
+- "Pump suspended" context chip on the treat tab — suspension state at the time of a low is the first thing an educator asks about
 
 **Bolus compare (second tab)**
 - Standard carb ÷ ICR + correction − IOB, every term visible
 - Log the Omnipod's actual figure alongside — the diary captures pump-calculated insulin against the plain maths
 - Meal tag (breakfast / lunch / afternoon / dinner / snack), pre-selected from the clock, one tap to change — the note field then only carries what's different ("orange + usual lunch")
-- Bolus timing relative to first bite: before / with food / after, with optional minutes — captures pre-bolus behaviour for review
+- Bolus timing relative to first bite: before / with food / after, with optional minutes — captures pre-bolus behaviour for review; logging a "before X min" bolus starts an eat-timer countdown with chime and notification when it's time to eat
 - Context chips on both tabs (illness / stress / activity / unusual day), multi-select — flow through diary, CSV, and print
 - **IOB method** (Settings → Bolus): Method 1 (default) subtracts IOB from carbs + correction combined, so a large IOB can eat into the meal bolus itself. Method 2 subtracts IOB from the correction only, capped at the correction amount — it never spills into the meal bolus, and does nothing at all when BG is at or below target. Matches the two methods offered by Ypsomed's mylife app; the ledger shows which was used and, on Method 2, any IOB left over uncounted.
 
@@ -29,7 +32,8 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - Calculations resolve all three schedules independently at the time of entry; the resolved blocks (e.g. `ICR@06:30 · CF@09:00 · tgt@00:00`) and values are shown in the result ledger and stamped on every log entry and CSV row
 
 **Diary**
-- Every low, meal and recheck in one timeline
+- Every low, meal, recheck and note in one timeline
+- Free-text notes (+ Note button): capture a trend or situation, with an editable timestamp for retrospective flagging
 - 14-day stats: lows count, average treatment size, recheck rate, rebound rate (>10 mmol/L), % of meals pre-bolused, lows by time of day
 - CSV export and print/PDF for the educator, ratios and stats stamped in the header
 
@@ -91,7 +95,7 @@ Pipeline: **app logs → CSV export → data report (durable record, PDF) → an
 - AID-displayed IOB includes automated delivery. The weighting % is a blunt instrument — start conservative and tune with your educator.
 - Decay curves are linear approximations. Real absorption varies by food, activity and everything else.
 - The app only knows what you log. Garbage in, garbage out.
-- Recheck notifications fire only while the app is open; the in-app banner is the reliable prompt.
+- Alarms (recheck and eat timer) fire reliably while the app is open or recently backgrounded — notifications go via the service worker (the constructor form silently fails on iOS and Android Chrome), with an in-app chime and vibration as well. With no push server (by design — nothing leaves the device), a fully closed app cannot be woken; the banner on reopen is the backstop. iOS additionally requires the app installed to the home screen (iOS 16.4+) for notifications at all.
 
 ## Settings
 
