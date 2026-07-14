@@ -215,6 +215,7 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
 <div class="tabs no-print">
   <button class="tab on" data-p="treat">Treat low</button>
   <button class="tab" data-p="bolus">Bolus</button>
+  <button class="tab" data-p="note">Note</button>
   <button class="tab" data-p="diary">Diary</button>
 </div>
 
@@ -343,30 +344,48 @@ input::placeholder,textarea::placeholder{color:#9FB4C0}
   </div>
 </div>
 
+<!-- NOTE -->
+<div class="panel no-print" id="p_note">
+  <div class="card">
+    <div class="field">
+      <label>Tag <span class="unit">optional — one only; note carries the detail</span></label>
+      <div class="chips" id="eventChips">
+        <button data-e="illness">Illness</button>
+        <button data-e="resistance">Resistance</button>
+        <button data-e="activity">Activity</button>
+        <button data-e="alcohol">Alcohol</button>
+        <button data-e="pod_change">Pod change</button>
+        <button data-e="sensor_change">Sensor change</button>
+        <button data-e="other">Other</button>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="n_bg">BG snapshot <span class="unit">mmol/L — optional</span></label>
+        <input id="n_bg" type="number" inputmode="decimal" step="0.1" min="1" max="35" placeholder="optional">
+      </div>
+      <div class="field">
+        <label for="n_when">Time <span class="unit">edit to flag retrospectively</span></label>
+        <input id="n_when" type="datetime-local" style="font-size:15px">
+      </div>
+    </div>
+    <div class="field">
+      <label for="n_text">Note <span class="unit">what's worth remembering</span></label>
+      <textarea id="n_text" placeholder="e.g. feeling insulin resistant since mid-morning — gut playing up"></textarea>
+    </div>
+    <button class="btn btn-go" id="btnEventSave">Save note</button>
+  </div>
+</div>
+
 <!-- DIARY -->
 <div class="panel no-print" id="p_diary">
   <div class="stats" id="stats"></div>
   <div class="loghead">
     <h2>Diary</h2>
     <div class="actions">
-      <button id="btnNote">+ Note</button>
       <button id="btnReport">Educator report</button>
       <button id="btnPrint">Print / PDF</button>
       <button id="btnCsv">CSV</button>
-    </div>
-  </div>
-  <div class="card" id="noteCard" style="display:none">
-    <div class="field">
-      <label for="n_text">Note <span class="unit">free text — trend, situation, anything worth flagging</span></label>
-      <textarea id="n_text" placeholder="e.g. drifting high since 2pm, big walk this morning"></textarea>
-    </div>
-    <div class="field">
-      <label for="n_when">Time <span class="unit">defaults to now — set earlier to flag retrospectively</span></label>
-      <input id="n_when" type="datetime-local" style="font-size:16px">
-    </div>
-    <div class="savebar">
-      <button class="btn btn-ghost" id="btnNoteCancel" style="flex:0 0 auto">Cancel</button>
-      <button class="btn btn-go" id="btnNoteSave" style="margin-top:0">Save note</button>
     </div>
   </div>
   <div id="log"></div>
@@ -634,6 +653,10 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p_'+t.dataset.p));
   if(t.dataset.p==='diary'){renderLog();renderStats()}
+  if(t.dataset.p==='note'){
+    const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    $('n_when').value=d.toISOString().slice(0,16);
+  }
 }));
 
 /* ---------- trend segmented ---------- */
@@ -687,6 +710,30 @@ function clearChips(id){
   document.querySelectorAll('#'+id+' button.on').forEach(b=>b.classList.remove('on'));
 }
 wireChips('ctxTreat');wireChips('ctxBolus');
+
+/* ---------- Note tab: event entries ---------- */
+const EVENT_LABEL={illness:'Illness',resistance:'Resistance',activity:'Activity',alcohol:'Alcohol',
+  pod_change:'Pod change',sensor_change:'Sensor change',other:'Other'};
+document.querySelectorAll('#eventChips button').forEach(b=>b.addEventListener('click',()=>{
+  const was=b.classList.contains('on');
+  document.querySelectorAll('#eventChips button').forEach(x=>x.classList.remove('on'));
+  if(!was)b.classList.add('on');   // click active chip again to deselect
+}));
+function saveEventNote(){
+  const tag=document.querySelector('#eventChips button.on')?.dataset.e||'';
+  const text=$('n_text').value.trim();
+  if(!tag&&!text){alert('Pick a tag or write a note first.');return}
+  const bg=parseFloat($('n_bg').value);
+  const when=$('n_when').value?new Date($('n_when').value).getTime():Date.now();
+  const e={type:'event',ts:when,event:tag,note:text};
+  if(!isNaN(bg)&&bg>=1&&bg<=35)e.bg=bg;
+  const log=store.log;log.push(e);store.log=log;
+  $('n_text').value='';$('n_bg').value='';
+  document.querySelectorAll('#eventChips button').forEach(x=>x.classList.remove('on'));
+  const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  $('n_when').value=d.toISOString().slice(0,16);
+  renderLog();renderStats();
+}
 
 /* ---------- treat UI ---------- */
 let lastTreat=null;
@@ -978,10 +1025,11 @@ function renderLog(){
         <div class="mid"><span>rec <b>${e.recGrams} g</b></span><span>ate <b>${e.eaten} g</b></span><span>IOB ${e.iob.toFixed(2)}</span></div>
         ${(lctx||e.note)?`<div class="note">${lctx}${(e.note||'').replace(/</g,'&lt;')}</div>`:''}
         <button class="del" data-i="${idx}">delete</button></div>`;
-    }else if(e.type==='note'){
+    }else if(e.type==='event'||e.type==='note'){
+      const etag=(e.event&&EVENT_LABEL[e.event])?EVENT_LABEL[e.event].toUpperCase():'NOTE';
       h+=`<div class="entry erecheck">
-        <div class="top"><span><span class="tag">NOTE</span></span><span class="t">${tstr(e.ts)}</span></div>
-        <div class="note">${(e.note||'').replace(/</g,'&lt;')}</div>
+        <div class="top"><span><span class="tag">${etag}</span>${e.bg!=null?' BG <b>'+e.bg.toFixed(1)+'</b>':''}</span><span class="t">${tstr(e.ts)}</span></div>
+        ${e.note?`<div class="note">${e.note.replace(/</g,'&lt;')}</div>`:''}
         <button class="del" data-i="${idx}">delete</button></div>`;
     }else if(e.type==='recheck'){
       const par=store.log.find(p=>p.ts===e.parent);
@@ -1009,14 +1057,14 @@ function renderLog(){
 /* ---------- exports ---------- */
 function csvEscape(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','low_class','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','low_class','event','note']];
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     rows.push([dstr(e.ts),tstr(e.ts),e.type,(e.bg!=null?e.bg.toFixed(1):''),
       e.trend?TRENDS[e.trend].sym:'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
       e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
       e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
-      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.lowClass||'',e.note||'']);
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.lowClass||'',e.event||'',e.note||'']);
   });
   const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\n');
   const a=document.createElement('a');
@@ -1035,7 +1083,7 @@ function printDiary(){
   <p>Generated ${new Date().toLocaleDateString('en-AU')} · ratio blocks: ${blockStr} · IOB weighting ${s.iobscale??50}% · lows last 14 days: ${lows14} · comparison/record only, not a dosing device</p></div>
   <table><tr><th class="l">Date</th><th>Time</th><th class="l">Type</th><th>BG</th><th class="l">Trend</th><th>Carbs g</th><th>Rec g</th><th>Eaten g</th><th>IOB U</th><th>Sugg U</th><th>Pump U</th><th class="l">Bolus timing</th><th class="l">Note</th></tr>`;
   [...store.log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
-    const ptype=e.type==='bolus'?(e.meal||'meal'):e.type;
+    const ptype=e.type==='bolus'?(e.meal||'meal'):((e.type==='event'||e.type==='note')?(e.event||'note'):e.type);
     const pctx=(e.context&&e.context.length)?'['+e.context.join('; ')+'] ':'';
     h+=`<tr><td class="l">${dstr(e.ts)}</td><td>${tstr(e.ts)}</td><td class="l">${ptype}</td><td>${e.bg!=null?e.bg.toFixed(1):''}</td><td class="l">${e.trend?TRENDS[e.trend].sym:''}</td><td>${e.carbs??''}</td><td>${e.recGrams??''}</td><td>${e.eaten??''}</td><td>${e.iob!=null?e.iob.toFixed(2)+(e.iobSource==='pump'?'*':''):''}</td><td>${e.dose!=null?e.dose.toFixed(2):''}</td><td>${e.delivered!=null?e.delivered.toFixed(2):''}</td><td class="l">${e.timing?timingText(e.timing,e.timingMins):''}</td><td class="l">${pctx}${(e.note||'').replace(/</g,'&lt;')}</td></tr>`;
   });
@@ -1059,25 +1107,7 @@ $('btnTreatSave').addEventListener('click',saveTreat);
 $('btnCalc').addEventListener('click',runCalc);
 $('btnSave').addEventListener('click',saveEntry);
 $('rcSave').addEventListener('click',saveRecheck);
-$('btnNote').addEventListener('click',()=>{
-  const c=$('noteCard');
-  const show=c.style.display==='none';
-  c.style.display=show?'block':'none';
-  if(show){
-    const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
-    $('n_when').value=d.toISOString().slice(0,16);
-    $('n_text').value='';
-  }
-});
-$('btnNoteCancel').addEventListener('click',()=>{$('noteCard').style.display='none'});
-$('btnNoteSave').addEventListener('click',()=>{
-  const text=$('n_text').value.trim();
-  if(!text){alert('Write something first.');return}
-  const when=$('n_when').value?new Date($('n_when').value).getTime():Date.now();
-  const log=store.log;log.push({type:'note',ts:when,note:text});store.log=log;
-  $('noteCard').style.display='none';
-  renderLog();renderStats();
-});
+$('btnEventSave').addEventListener('click',saveEventNote);
 $('btnCsv').addEventListener('click',exportCsv);
 $('btnReport').addEventListener('click',()=>window.open('report.html','_blank'));
 $('btnPrint').addEventListener('click',printDiary);

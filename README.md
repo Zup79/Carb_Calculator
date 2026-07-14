@@ -31,9 +31,13 @@ Also includes a bolus comparison tab (carb + correction − IOB, shown as a ledg
 - Each block runs from its start to the next block in its schedule, wrapping overnight
 - Calculations resolve all three schedules independently at the time of entry; the resolved blocks (e.g. `ICR@06:30 · CF@09:00 · tgt@00:00`) and values are shown in the result ledger and stamped on every log entry and CSV row
 
+**Note (third tab)**
+- Typed observations the pump can't hold: one-tap tag (Illness / Resistance / Activity / Alcohol / Pod change / Sensor change / Other), free text, optional BG snapshot, editable timestamp for retrospective flagging
+- `Resistance` is deliberately an observation, not a mechanism — it covers the stress / inflammation / "insulin isn't working today" cluster; the note carries the interpretation
+- Events are context, never data: they render in the diary, CSV, print and data report pinned to their day, but never count toward meal/low statistics
+
 **Diary**
 - Every low, meal, recheck and note in one timeline
-- Free-text notes (+ Note button): capture a trend or situation, with an editable timestamp for retrospective flagging
 - 14-day stats: lows count, average treatment size, recheck rate, rebound rate (>10 mmol/L), % of meals pre-bolused, lows by time of day
 - CSV export and print/PDF for the educator, ratios and stats stamped in the header
 

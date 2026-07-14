@@ -295,14 +295,14 @@ function loadFromDevice(){
     return;
   }
   // identical header + row generation to the app's CSV export
-  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','low_class','note']];
+  const rows=[['date','time','type','bg_mmol','trend','carbs_g','rec_g','eaten_g','iob_u','iob_source','sugg_u','pump_u','meal','bolus_timing','timing_min','context','block','icr','isf','target','iob_method','low_class','event','note']];
   [...log].sort((a,b)=>a.ts-b.ts).forEach(e=>{
     rows.push([_d(e.ts),_t(e.ts),e.type,(e.bg!=null?e.bg.toFixed(1):''),
       e.trend?(TREND_SYM[e.trend]||''):'',e.carbs??'',e.recGrams??'',e.eaten??'',
       e.iob!=null?e.iob.toFixed(2):'',e.iobSource||'',
       e.dose!=null?e.dose.toFixed(2):'',e.delivered!=null?e.delivered.toFixed(2):'',
       e.meal||'',e.timing||'',e.timingMins??'',(e.context&&e.context.length)?e.context.join('; '):'',
-      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.lowClass||'',e.note||'']);
+      e.block||'',e.icr??'',e.isf??'',e.target??'',e.iobMethod||'',e.lowClass||'',e.event||'',e.note||'']);
   });
   document.getElementById('csv').value=rows.map(r=>r.map(_esc).join(',')).join('\n');
   // prefill settings from the app's ratio schedules
